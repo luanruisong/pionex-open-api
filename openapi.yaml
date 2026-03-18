@@ -51,7 +51,7 @@ paths:
     get:
       tags: [Common]
       summary: Get symbols info
-      description: Get trading pair information. Weight: 5.
+      description: "Get trading pair information. Weight: 5."
       operationId: getSymbols
       parameters:
         - name: symbols
@@ -88,7 +88,7 @@ paths:
     get:
       tags: [Market]
       summary: Get market trades
-      description: Get recent trades. Weight: 1.
+      description: "Get recent trades. Weight: 1."
       operationId: getMarketTrades
       parameters:
         - name: symbol
@@ -130,7 +130,7 @@ paths:
     get:
       tags: [Market]
       summary: Get order book depth
-      description: Get order book snapshot. Weight: 1.
+      description: "Get order book snapshot. Weight: 1."
       operationId: getMarketDepth
       parameters:
         - name: symbol
@@ -190,7 +190,7 @@ paths:
     get:
       tags: [Market]
       summary: Get 24hr tickers
-      description: Get 24-hour price change statistics. Weight: 1.
+      description: "Get 24-hour price change statistics. Weight: 1."
       operationId: getTickers
       parameters:
         - name: symbol
@@ -229,7 +229,7 @@ paths:
     get:
       tags: [Market]
       summary: Get book tickers
-      description: Get best bid/ask prices. Weight: 1.
+      description: "Get best bid/ask prices. Weight: 1."
       operationId: getBookTickers
       parameters:
         - name: symbol
@@ -268,7 +268,7 @@ paths:
     get:
       tags: [Market]
       summary: Get klines (candlestick data)
-      description: Get OHLCV candlestick data. Weight: 1. Maximum 10,000 records.
+      description: "Get OHLCV candlestick data. Weight: 1. Maximum 10,000 records."
       operationId: getKlines
       parameters:
         - name: symbol
@@ -323,7 +323,7 @@ paths:
     get:
       tags: [Account]
       summary: Get account balances
-      description: Get trading account balances (excludes bot and earn accounts). Weight: 1.
+      description: "Get trading account balances (excludes bot and earn accounts). Weight: 1."
       operationId: getBalances
       security:
         - apiKey: []
@@ -365,7 +365,7 @@ paths:
     post:
       tags: [Trade]
       summary: New order
-      description: Place a new order. Weight: 1.
+      description: "Place a new order. Weight: 1."
       operationId: newOrder
       security:
         - apiKey: []
@@ -404,7 +404,7 @@ paths:
     get:
       tags: [Trade]
       summary: Get order
-      description: Get order details by order ID. Weight: 1.
+      description: "Get order details by order ID. Weight: 1."
       operationId: getOrder
       security:
         - apiKey: []
@@ -436,7 +436,7 @@ paths:
     delete:
       tags: [Trade]
       summary: Cancel order
-      description: Cancel an existing order. Weight: 1.
+      description: "Cancel an existing order. Weight: 1."
       operationId: cancelOrder
       security:
         - apiKey: []
@@ -474,7 +474,7 @@ paths:
     post:
       tags: [Trade]
       summary: New multiple orders
-      description: Place multiple orders at once (up to 20, LIMIT only). Weight: 1.
+      description: "Place multiple orders at once (up to 20, LIMIT only). Weight: 1."
       operationId: newMassOrder
       security:
         - apiKey: []
@@ -518,7 +518,7 @@ paths:
     get:
       tags: [Trade]
       summary: Get order by client order ID
-      description: Get order details by client order ID. Weight: 1.
+      description: "Get order details by client order ID. Weight: 1."
       operationId: getOrderByClientOrderId
       security:
         - apiKey: []
@@ -551,7 +551,7 @@ paths:
     get:
       tags: [Trade]
       summary: Get open orders
-      description: Get all open orders for a symbol. Maximum 200 open orders per symbol. Weight: 5.
+      description: "Get all open orders for a symbol. Maximum 200 open orders per symbol. Weight: 5."
       operationId: getOpenOrders
       security:
         - apiKey: []
@@ -590,7 +590,7 @@ paths:
     get:
       tags: [Trade]
       summary: Get all orders
-      description: Get all orders (open and closed) for a symbol. Weight: 5.
+      description: "Get all orders (open and closed) for a symbol. Weight: 5."
       operationId: getAllOrders
       security:
         - apiKey: []
@@ -647,7 +647,7 @@ paths:
     delete:
       tags: [Trade]
       summary: Cancel all orders
-      description: Cancel all open orders for a symbol. Weight: 1.
+      description: "Cancel all open orders for a symbol. Weight: 1."
       operationId: cancelAllOrders
       security:
         - apiKey: []
@@ -681,7 +681,7 @@ paths:
     get:
       tags: [Trade]
       summary: Get fills
-      description: Get trade fills for a symbol. Returns latest 100 fills when exceeding limit. Weight: 5.
+      description: "Get trade fills for a symbol. Returns latest 100 fills when exceeding limit. Weight: 5."
       operationId: getFills
       security:
         - apiKey: []
@@ -733,7 +733,7 @@ paths:
     get:
       tags: [Trade]
       summary: Get fills by order ID
-      description: Get trade fills for a specific order. Weight: 5.
+      description: "Get trade fills for a specific order. Weight: 5."
       operationId: getFillsByOrderId
       security:
         - apiKey: []
