@@ -4,27 +4,88 @@ info:
   description: |
     Pionex cryptocurrency exchange RESTful API.
 
+    # General Info
+
+    ## Basic Info
+
+    **Base URL:** `https://api.pionex.com`
+
+    **Request Format:**
+    - For private requests, the `timestamp` parameter (in milliseconds) must be included in the query string. The timestamp is valid within a range of ±20 seconds.
+    - Private requests require `PIONEX-KEY` (API Key) and `PIONEX-SIGNATURE` headers.
+    - GET requests: additional parameters are passed in the query string.
+    - POST/DELETE requests: parameters are passed in the request body as JSON (`application/json`).
+    - Zero-valued number parameters are disregarded.
+
+    **Signature Construction:**
+    - GET: `METHOD + PATH_URL + QUERY + TIMESTAMP`
+    - POST/DELETE: `METHOD + PATH_URL + QUERY + TIMESTAMP + body`
+
+    **Response Format:**
+
+    All responses are JSON objects containing:
+    - `result` (boolean): success indicator
+    - `timestamp` (number): response timestamp in milliseconds
+    - On success: `data` object with business information
+    - On failure: `code` (string) and `message` (string) with error details
+
+    Success example:
+    ```json
+    {"result": true, "data": {"orderId": 123456789}, "timestamp": 1566691672311}
+    ```
+
+    Failure example:
+    ```json
+    {"result": false, "code": "TRADE_INVAILD_SYMBOL", "message": "Invalid symbol", "timestamp": 1566691672311}
+    ```
+
+    **Error Codes:**
+
+    | Code | Description |
+    |------|-------------|
+    | APIKEY_LOST | API Key is missing |
+    | SIGNATURE_LOST | Signature is missing |
+    | IP_NOT_WHITELISTED | IP is not in the whitelist |
+    | INVALID_APIKEY | Invalid API Key |
+    | INVALID_SIGNATURE | Invalid signature |
+    | APIKEY_EXPIRED | API Key has expired |
+    | INVALID_TIMESTAMP | Invalid timestamp |
+    | PERMISSION_DENIED | Permission denied |
+
+    ## Rate Limits
+
+    - Each endpoint has a weight value that determines how many requests it counts toward the limit.
+    - IP-based and account-based limits operate independently.
+    - All endpoints share the 10 per second limit based on IP.
+    - Private endpoints share the 10 per second limit based on ACCOUNT.
+    - Exceeding the weight limit results in HTTP 429 status code.
+    - The violating IP or account receives a 60-second ban.
+    - Repeated violations extend the ban duration by 10 seconds per additional request.
+
     ## Authentication
-    Private endpoints require HMAC SHA256 signature authentication.
+
+    Private endpoints require HMAC SHA256 signature authentication. Public endpoints (base information, market data) do not require signing.
+
+    API Keys must have appropriate permissions assigned before accessing corresponding endpoints.
 
     **Required headers:**
     - `PIONEX-KEY`: Your API Key
     - `PIONEX-SIGNATURE`: HMAC SHA256 hex signature
 
     **Required query parameter:**
-    - `timestamp`: Current time in milliseconds (valid range: +/- 20 seconds)
+    - `timestamp`: Current time in milliseconds (valid within ±20 seconds)
 
-    **Signature construction:**
-    - GET: `METHOD + PATH_URL + SORTED_QUERY + TIMESTAMP`
-    - POST/DELETE: `METHOD + PATH_URL + SORTED_QUERY + TIMESTAMP + BODY`
+    **Signing Process:**
 
-    Query parameters are sorted alphabetically by key, joined with `&`, and appended to the path with `?`.
-    The signature is generated using HMAC SHA256 with your API Secret, then converted to hexadecimal.
+    1. Obtain current timestamp in milliseconds
+    2. Format query parameters as key-value pairs (no URL encoding for signature values)
+    3. Sort parameters alphabetically by key and join with `&` (include timestamp)
+    4. Build PATH_URL by appending sorted parameters to the request path with `?`
+    5. Prepend the HTTP METHOD (GET, POST, DELETE) to the PATH_URL
+    6. For POST/DELETE requests, append the request body; skip for GET
+    7. Generate HMAC SHA256 using your API Secret and the concatenated string, convert to hexadecimal
 
-    ## Rate Limits
-    - All endpoints: 10 requests per second per IP
-    - Private endpoints: 10 requests per second per account
-    - Exceeding limits returns HTTP 429 and a 60-second ban (increases by 10s per additional violation)
+    The resulting hex signature goes into the request header as `PIONEX-SIGNATURE`.
   version: 1.0.0
   contact:
     name: Pionex API Support

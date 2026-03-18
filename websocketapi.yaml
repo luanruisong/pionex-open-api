@@ -5,20 +5,44 @@ info:
   description: |
     Pionex cryptocurrency exchange WebSocket API for real-time market data and account updates.
 
+    # General Info
+
     ## Connection Endpoints
     - **Public stream**: `wss://ws.pionex.com/wsPub` (no authentication)
     - **Private stream**: `wss://ws.pionex.com/ws` (requires authentication)
 
     ## Authentication (Private Stream)
-    Connect with query parameters: `key`, `timestamp`, `signature`.
+    Private streams require authentication via query parameters:
+    - `key`: Your API Key
+    - `timestamp`: Current time in milliseconds
+    - `signature`: HMAC SHA256 hash for verification
 
-    Signature generation:
-    1. Create key-value pairs for `key` and `timestamp`
-    2. Sort alphabetically, join with `&`
-    3. Build string: `/ws?<sorted_params>websocket_auth`
-    4. HMAC SHA256 with API Secret, convert to hex
+    ### Signing
 
-    Example: `wss://ws.pionex.com/ws?key=xxx&timestamp=1655896754515&signature=3e901247...`
+    1. Obtain the current millisecond timestamp
+    2. Format key-value pairs for `key` and `timestamp`
+    3. Sort parameters alphabetically and join with `&`
+    4. Append sorted parameters to the path: `/ws?<sorted_params>`
+    5. Concatenate the string `websocket_auth` to the path URL
+    6. Generate HMAC SHA256 using your API Secret and the complete string, convert to hexadecimal
+    7. Add the resulting signature to query parameters
+
+    **Example:**
+
+    Concatenated string for signing:
+    ```
+    /ws?key=OElNn5D_Frnf5MR0ChjYdG7PunK0AOgHTvevwzWS&timestamp=1655896754515websocket_auth
+    ```
+
+    Generated signature:
+    ```
+    3e901247350e744353f4a7a479fd67181184a627b119352ec1b7a432925e772c
+    ```
+
+    Final connection URL:
+    ```
+    wss://ws.pionex.com/ws?key=OElNn5D_Frnf5MR0ChjYdG7PunK0AOgHTvevwzWS&timestamp=1655896754515&signature=3e901247350e744353f4a7a479fd67181184a627b119352ec1b7a432925e772c
+    ```
 
     ## Subscribe / Unsubscribe
     Send JSON message after connection:
@@ -46,7 +70,7 @@ tags:
     description: "Private channels via `wss://ws.pionex.com/ws` (auth required)"
 
 paths:
-  /wsPub/trade:
+  "/wsPub (trade)":
     get:
       tags: [Public Stream]
       summary: Trade Stream
@@ -92,7 +116,7 @@ paths:
                     side: BUY
                     timestamp: 1566691672311
 
-  /wsPub/depth:
+  "/wsPub (depth)":
     get:
       tags: [Public Stream]
       summary: Depth Stream
@@ -146,7 +170,7 @@ paths:
                     - ["27979.32", "0.0731"]
                     - ["27980.97", "1.0294"]
 
-  /ws/order:
+  "/ws (order)":
     get:
       tags: [Private Stream]
       summary: Order Stream
@@ -181,7 +205,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OrderMessage'
 
-  /ws/fill:
+  "/ws (fill)":
     get:
       tags: [Private Stream]
       summary: Fill Stream
@@ -216,7 +240,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FillMessage'
 
-  /ws/balance:
+  "/ws (balance)":
     get:
       tags: [Private Stream]
       summary: Balance Stream
