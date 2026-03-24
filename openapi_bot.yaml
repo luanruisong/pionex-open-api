@@ -51,6 +51,8 @@ info:
 
     ## Authentication
 
+    [API Key Guide](https://www.pionex.com/docs/api-docs/references/api-key-guide)
+
     Private endpoints require HMAC SHA256 signature authentication.
 
     **Required headers:**
