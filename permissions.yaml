@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: Pionex Open API - API Key Permissions
+  description: |
+    API Key permission requirements for Pionex Open API endpoints.
+
+    ## API Key Permissions
+
+    Each API Key can be configured with specific permissions. The table below lists which permission is required for each endpoint, and the corresponding MCP tool, CLI subcommand, and Skill in [pionex-ai-kit](https://github.com/pionex-official/pionex-ai-kit).
+
+    | Permission | Description | API | MCP | CLI | Skill |
+    |---|---|---|---|---|---|
+    | Public | No API Key required. | <ul><li>`GET /api/v1/common/symbols`</li><li>`GET /api/v1/market/trades`</li><li>`GET /api/v1/market/depth`</li><li>`GET /api/v1/market/tickers`</li><li>`GET /api/v1/market/bookTickers`</li><li>`GET /api/v1/market/klines`</li></ul> | <ul><li>`pionex_market_get_symbol_info`</li><li>`pionex_market_get_trades`</li><li>`pionex_market_get_depth`</li><li>`pionex_market_get_tickers`</li><li>-</li><li>`pionex_market_get_klines`</li></ul> | <ul><li>`pionex market symbols`</li><li>`pionex market trades`</li><li>`pionex market depth`</li><li>`pionex market tickers`</li><li>-</li><li>`pionex market klines`</li></ul> | <ul><li>`pionex-market`</li><li>`pionex-market`</li><li>`pionex-market`</li><li>`pionex-market`</li><li>-</li><li>`pionex-market`</li></ul> |
+    | Enable reading | Query account and order information. | <ul><li>`GET /api/v1/account/balances`</li><li>`GET /api/v1/trade/order`</li><li>`GET /api/v1/trade/orderByClientOrderId`</li><li>`GET /api/v1/trade/openOrders`</li><li>`GET /api/v1/trade/allOrders`</li><li>`GET /api/v1/trade/fills`</li><li>`GET /api/v1/trade/fillsByOrderId`</li></ul> | <ul><li>`pionex_account_get_balance`</li><li>`pionex_orders_get_order`</li><li>`pionex_orders_get_order_by_client_order_id`</li><li>`pionex_orders_get_open_orders`</li><li>`pionex_orders_get_all_orders`</li><li>`pionex_orders_get_fills`</li><li>-</li></ul> | <ul><li>`pionex account balance`</li><li>`pionex orders get`</li><li>-</li><li>`pionex orders open`</li><li>`pionex orders all`</li><li>`pionex orders fills`</li><li>-</li></ul> | <ul><li>`pionex-portfolio`</li><li>`pionex-trade`</li><li>`pionex-trade`</li><li>`pionex-trade`</li><li>`pionex-trade`</li><li>`pionex-trade`</li><li>-</li></ul> |
+    | Enable trading | Place and cancel orders. | <ul><li>`POST /api/v1/trade/order`</li><li>`DELETE /api/v1/trade/order`</li><li>`POST /api/v1/trade/massOrder`</li><li>`DELETE /api/v1/trade/allOrders`</li></ul> | <ul><li>`pionex_orders_new_order`</li><li>`pionex_orders_cancel_order`</li><li>-</li><li>`pionex_orders_cancel_all_orders`</li></ul> | <ul><li>`pionex orders new`</li><li>`pionex orders cancel`</li><li>-</li><li>`pionex orders cancel-all`</li></ul> | <ul><li>`pionex-trade`</li><li>`pionex-trade`</li><li>-</li><li>`pionex-trade`</li></ul> |
+    | Bot reading | Query bot order information. | <ul><li>`GET /api/v1/bot/orders/futuresGrid/order`</li></ul> | <ul><li>-</li></ul> | <ul><li>-</li></ul> | <ul><li>-</li></ul> |
+    | Bot trading | Create and manage bot orders. | <ul><li>`POST /api/v1/bot/orders/futuresGrid/create`</li><li>`POST /api/v1/bot/orders/futuresGrid/adjustParams`</li><li>`POST /api/v1/bot/orders/futuresGrid/reduce`</li><li>`POST /api/v1/bot/orders/futuresGrid/cancel`</li></ul> | <ul><li>-</li><li>-</li><li>-</li><li>-</li></ul> | <ul><li>-</li><li>-</li><li>-</li><li>-</li></ul> | <ul><li>-</li><li>-</li><li>-</li><li>-</li></ul> |
+  version: 1.0.0
+  contact:
+    name: Pionex API Support
+    url: https://t.me/pionexapi
