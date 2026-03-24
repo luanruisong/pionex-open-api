@@ -1,0 +1,1036 @@
+openapi: 3.0.3
+info:
+  title: Pionex Bot Open API - Futures Grid
+  description: |
+    Pionex cryptocurrency exchange Bot RESTful API - Futures Grid Bot endpoints.
+
+    # General Info
+
+    ## Basic Info
+
+    **Base URL:** `https://api.pionex.com`
+
+    **Request Format:**
+    - For private requests, the `timestamp` parameter (in milliseconds) must be included in the query string. The timestamp is valid within a range of +/-20 seconds.
+    - Private requests require `PIONEX-KEY` (API Key) and `PIONEX-SIGNATURE` headers.
+    - GET requests: additional parameters are passed in the query string.
+    - POST/DELETE requests: parameters are passed in the request body as JSON (`application/json`).
+    - Zero-valued number parameters are disregarded.
+
+    **Signature Construction:**
+    - GET: `METHOD + PATH_URL + QUERY + TIMESTAMP`
+    - POST/DELETE: `METHOD + PATH_URL + QUERY + TIMESTAMP + body`
+
+    **Response Format:**
+
+    All responses are JSON objects containing:
+    - `result` (boolean): success indicator
+    - `timestamp` (number): response timestamp in milliseconds
+    - On success: `data` object with business information
+    - On failure: `code` (string) and `message` (string) with error details
+
+    Success example:
+    ```json
+    {"result": true, "data": {"buOrderId": "123456789"}, "timestamp": 1566691672311}
+    ```
+
+    Failure example:
+    ```json
+    {"result": false, "code": "PARAMETER_ERROR", "message": "Invalid parameter", "timestamp": 1566691672311}
+    ```
+
+    ## Rate Limits
+
+    - Each endpoint has a weight value that determines how many requests it counts toward the limit.
+    - IP-based and account-based limits operate independently.
+    - All endpoints share the 10 per second limit based on IP.
+    - Private endpoints share the 10 per second limit based on ACCOUNT.
+    - Exceeding the weight limit results in HTTP 429 status code.
+
+    ## Authentication
+
+    Private endpoints require HMAC SHA256 signature authentication.
+
+    **Required headers:**
+    - `PIONEX-KEY`: Your API Key
+    - `PIONEX-SIGNATURE`: HMAC SHA256 hex signature
+
+    **Required query parameter:**
+    - `timestamp`: Current time in milliseconds (valid within +/-20 seconds)
+  version: 1.0.0
+  contact:
+    name: Pionex API Support
+    url: https://t.me/pionexapi
+
+servers:
+  - url: https://api.pionex.com
+    description: Production
+
+security: []
+
+tags:
+  - name: Futures Grid
+    description: Futures Grid Bot management (private)
+
+paths:
+  /api/v1/bot/orders/futuresGrid/order:
+    get:
+      tags: [Futures Grid]
+      summary: Get futures grid order
+      description: "Query a futures grid bot order by ID. Weight: 1."
+      operationId: getFuturesGridOrder
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: buOrderId
+          in: query
+          required: true
+          description: Bot order ID
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Language
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FuturesGridOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bot/orders/futuresGrid/create:
+    post:
+      tags: [Futures Grid]
+      summary: Create futures grid order
+      description: "Create a new futures grid bot order. Weight: 1."
+      operationId: createFuturesGridOrder
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFuturesGridRequest'
+      responses:
+        '200':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          buOrderData:
+                            type: object
+                            description: Bot order data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bot/orders/futuresGrid/adjustParams:
+    post:
+      tags: [Futures Grid]
+      summary: Adjust futures grid (add investment / modify range)
+      description: "Add investment, modify grid range, or set trigger investment for a futures grid order. Weight: 1."
+      operationId: adjustFuturesGridParams
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustFuturesGridRequest'
+      responses:
+        '200':
+          description: Adjustment applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bot/orders/futuresGrid/reduce:
+    post:
+      tags: [Futures Grid]
+      summary: Reduce futures grid position
+      description: "Reduce position size of a futures grid order. Weight: 1."
+      operationId: reduceFuturesGrid
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReduceFuturesGridRequest'
+      responses:
+        '200':
+          description: Reduction result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ReduceFuturesGridResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bot/orders/futuresGrid/cancel:
+    post:
+      tags: [Futures Grid]
+      summary: Cancel futures grid order
+      description: "Close and cancel a futures grid bot order. Weight: 1."
+      operationId: cancelFuturesGridOrder
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelFuturesGridRequest'
+      responses:
+        '200':
+          description: Order cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: PIONEX-KEY
+      description: |
+        API Key authentication. Requires two headers:
+        - `PIONEX-KEY`: Your API Key
+        - `PIONEX-SIGNATURE`: HMAC SHA256 hex signature
+
+        And a `timestamp` query parameter (milliseconds).
+
+  parameters:
+    Timestamp:
+      name: timestamp
+      in: query
+      required: true
+      description: Current timestamp in milliseconds (valid range +/- 20 seconds)
+      schema:
+        type: integer
+        format: int64
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        result:
+          type: boolean
+          description: Request success indicator
+        timestamp:
+          type: integer
+          format: int64
+          description: Response timestamp in milliseconds
+
+    ErrorResponse:
+      type: object
+      properties:
+        result:
+          type: boolean
+          example: false
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        timestamp:
+          type: integer
+          format: int64
+
+    FuturesGridOrder:
+      type: object
+      properties:
+        keyId:
+          type: string
+          description: API Key ID
+        userId:
+          type: string
+          description: User ID
+        exchange:
+          type: string
+          description: Exchange identifier
+          example: pionex.v2
+        base:
+          type: string
+          description: Base currency
+          example: BTC
+        quote:
+          type: string
+          description: Quote currency
+          example: USDT
+        status:
+          type: string
+          description: Order status
+        createTime:
+          type: number
+          description: Creation timestamp in milliseconds
+        copyFrom:
+          type: string
+          description: Copy source order ID
+        copyType:
+          type: string
+          description: Copy type
+        groupId:
+          type: string
+          description: Bound group ID
+        copyBotOrderId:
+          type: string
+          description: Copy bot order ID
+        note:
+          type: string
+          description: Note
+        customizeName:
+          type: string
+          description: Custom name
+        buOrderData:
+          $ref: '#/components/schemas/FuturesGridOrderData'
+
+    FuturesGridOrderData:
+      type: object
+      properties:
+        status:
+          type: string
+          description: |
+            Bot status:
+            `prepare`, `lock_currency`, `condition_lock`, `open_position`, `init_grid`,
+            `running`, `destroy_grid`, `close_position`, `unlock_currency`, `canceled`,
+            `adjust_params`, `adjust_params_open_position`, `adjust_params_init_grid`,
+            `pre_pause`, `pausing`, `paused`, `pre_resume`, `resuming`
+          enum:
+            - prepare
+            - lock_currency
+            - condition_lock
+            - open_position
+            - init_grid
+            - running
+            - destroy_grid
+            - close_position
+            - unlock_currency
+            - canceled
+            - adjust_params
+            - adjust_params_open_position
+            - adjust_params_init_grid
+            - pre_pause
+            - pausing
+            - paused
+            - pre_resume
+            - resuming
+        reasonBy:
+          type: string
+          description: |
+            Close reason:
+            `user_cancel` - User cancelled,
+            `force_liquidation` - Liquidated,
+            `loss_stop` - Stop loss triggered,
+            `profit_stop` - Take profit triggered,
+            `not_enough_balance` - Insufficient balance during running,
+            `not_enough_balance_when_lock` - Lock funds failed after order,
+            `create_failed` - Order creation failed
+          enum:
+            - user_cancel
+            - force_liquidation
+            - loss_stop
+            - profit_stop
+            - not_enough_balance
+            - not_enough_balance_when_lock
+            - create_failed
+        top:
+          type: string
+          description: Grid upper price
+        bottom:
+          type: string
+          description: Grid lower price
+        row:
+          type: number
+          description: Number of grid levels
+        gridType:
+          type: string
+          description: "Grid spacing type: `arithmetic` (equal difference) or `geometric` (equal ratio)"
+          enum: [arithmetic, geometric]
+        openPrice:
+          type: string
+          description: Current price at creation
+        trend:
+          type: string
+          description: "Grid direction: `long`, `short`, or `no_trend` (neutral)"
+          enum: [long, short, no_trend]
+        type:
+          type: string
+          description: "Operation type (e.g. `invest_in` for adding investment)"
+        leverage:
+          type: number
+          description: Leverage multiplier
+        extraMargin:
+          type: string
+          description: Extra margin amount
+        quoteInvestment:
+          type: string
+          description: Total investment amount
+        perVolume:
+          type: string
+          description: Volume per grid level
+        position:
+          type: string
+          description: Current position size
+        positionOpenPrice:
+          type: string
+          description: Position open price
+        marginBalance:
+          type: string
+          description: Margin balance (after leverage)
+        extraBalance:
+          type: string
+          description: Extra balance
+        liquidationTriggered:
+          type: boolean
+          description: Whether liquidation was triggered
+        liquidationPrice:
+          type: string
+          description: Liquidation price
+        liquidationFee:
+          type: string
+          description: Liquidation fee
+        estimateLiquidationPriceUp:
+          type: string
+          description: Estimated liquidation price (upward)
+        estimateLiquidationPriceDown:
+          type: string
+          description: Estimated liquidation price (downward)
+        lossStopType:
+          type: string
+          description: |
+            Stop loss type:
+            `price` - By market price (default),
+            `profit_amount` - By P&L amount,
+            `profit_ratio` - By P&L ratio,
+            `price_limit` - By limit price
+          enum: [price, profit_amount, profit_ratio, price_limit]
+        lossStop:
+          type: string
+          description: |
+            Stop loss value. Interpretation depends on lossStopType:
+            `price` -> stop loss price,
+            `profit_amount` -> stop loss amount,
+            `profit_ratio` -> stop loss ratio
+        profitStopType:
+          type: string
+          description: |
+            Take profit type:
+            `price` - By price (default),
+            `profit_amount` - By profit amount,
+            `profit_ratio` - By profit ratio,
+            `price_limit` - By limit price
+          enum: [price, profit_amount, profit_ratio, price_limit]
+        profitStop:
+          type: string
+          description: |
+            Take profit value. Interpretation depends on profitStopType:
+            `price` -> take profit price,
+            `profit_amount` -> profit amount,
+            `profit_ratio` -> profit ratio
+        riskStatus:
+          type: string
+          description: "Risk status"
+          enum: [TRADING, HOLDING, TAKEOVER, LIQUIDATION]
+          default: TRADING
+        lossStopHigh:
+          type: string
+          description: Upper stop loss price for neutral grid (above top)
+        pausePrice:
+          type: string
+          description: Price when paused
+        profitWithdrawn:
+          type: string
+          description: Total profit withdrawn
+        openQuotePrice:
+          type: string
+          description: Average quote-to-USDT price for investment
+        closeSellModel:
+          type: string
+          description: |
+            Close sell mode:
+            `TO_QUOTE` - Close position only,
+            `TO_USDT` - Close position and sell quote to USDT
+          enum: [TO_QUOTE, TO_USDT]
+        quoteAmountBeforeSell:
+          type: string
+          description: Quote amount before closing
+        quoteAmountSell:
+          type: string
+          description: Quote amount sold on close
+        quoteSellPrice:
+          type: string
+          description: Quote sell price on close
+        unlockUsdtAmount:
+          type: string
+          description: USDT returned to main account (only when TO_USDT)
+        unlockQuoteAmount:
+          type: string
+          description: Quote returned to main account
+        initQuotePrice:
+          type: string
+          description: Quote/USDT price at order creation
+        closedQuotePrice:
+          type: string
+          description: Quote/USDT price at close
+        shareRatio:
+          type: string
+          description: Profit sharing ratio
+        sharedProfit:
+          type: string
+          description: Shared profit amount
+        marginStatus:
+          type: string
+          description: "Margin status: `NORMAL` or `INSUFFICIENT`"
+          enum: [NORMAL, INSUFFICIENT]
+          default: NORMAL
+        investCoin:
+          type: string
+          description: "Investment currency. `USDT` or quote currency (e.g. BTC)"
+        investmentFrom:
+          type: string
+          description: |
+            Funding source:
+            `USER` - User main account,
+            `LOCK_ACTIVITY` - Lock activity pool,
+            `FUTURE_GRID_BONUS` - Bonus pool
+          enum: [USER, LOCK_ACTIVITY, FUTURE_GRID_BONUS]
+        lockEndTime:
+          type: number
+          description: Lock end time in milliseconds
+        profitWithdrawnU:
+          type: string
+          description: Profit withdrawn (user portion)
+        profitWithdrawnC:
+          type: string
+          description: Profit withdrawn (charity/bonus portion)
+        profitWithdrawnP:
+          type: string
+          description: Profit withdrawn (Pionex/bonus fee portion)
+        usdtInvestment:
+          type: string
+          description: USDT investment amount
+        uiInvestCoin:
+          type: string
+          description: Frontend-recorded investment currency type
+        uiExtraData:
+          type: string
+          description: Frontend extra data for coin-margined futures grid
+        stopLossEnabled:
+          type: boolean
+          description: Stop loss enabled while paused
+        stopProfitEnabled:
+          type: boolean
+          description: Take profit enabled while paused
+        triggerPausePriceUp:
+          type: string
+          description: Price trigger for pause (upward)
+        triggerPausePriceDown:
+          type: string
+          description: Price trigger for pause (downward)
+        profitReduce:
+          type: string
+          description: Grid profit from position reduction (accumulated)
+        closeOrderType:
+          type: string
+          description: |
+            Close order type:
+            `market` - Market price close,
+            `limit` - Limit price close,
+            `limit_high` - Neutral grid top limit close
+          enum: [market, limit, limit_high]
+        closedBaseAmount:
+          type: string
+          description: Closed position amount
+        lossStopLimitPrice:
+          type: string
+          description: Limit stop loss price (when lossStopType=price_limit)
+        lossStopLimitHighPrice:
+          type: string
+          description: Upper limit stop loss price for neutral grid (when lossStopType=price_limit)
+        profitStopLimitPrice:
+          type: string
+          description: Limit take profit price (when profitStopType=price_limit)
+        slippage:
+          type: string
+          description: "Open position slippage (e.g. \"0.01\" = 1%)"
+        bonusId:
+          type: string
+          description: Bonus UUID (when investmentFrom=FUTURE_GRID_BONUS)
+        bonusBackUsdt:
+          type: string
+          description: USDT recovered from bonus on close
+        bonusBackQuote:
+          type: string
+          description: Quote recovered from bonus on close
+        notionalStatus:
+          type: string
+          description: "Notional status: `NORMAL` or `NOTIONAL_LIMIT`"
+          enum: [NORMAL, NOTIONAL_LIMIT]
+          default: NORMAL
+        closeSlippage:
+          type: string
+          description: "Close position slippage (e.g. \"0.01\" = 1%)"
+        bonusFeeRatio:
+          type: string
+          description: "Bonus fee ratio (e.g. \"0.2\" = 20%)"
+        bonusFee:
+          type: string
+          description: Bonus management fee recovered on close (in quote)
+        disableChangeTp:
+          type: boolean
+          description: Whether modification of take profit is disabled
+        disableInvestInTrigger:
+          type: boolean
+          description: Whether trigger investment is disabled
+        investInTriggers:
+          type: array
+          description: Pending trigger investment list (max 1 item)
+          items:
+            $ref: '#/components/schemas/InvestInTrigger'
+        investOutTriggers:
+          type: array
+          description: Pending trigger reduction list (max 1 item)
+          items:
+            $ref: '#/components/schemas/InvestOutTrigger'
+        autoExpiredTime:
+          type: number
+          description: Auto-close timestamp in milliseconds (for bonus orders)
+        movingIndicatorType:
+          type: string
+          description: "Moving indicator type (e.g. `sma`)"
+        movingIndicatorInterval:
+          type: string
+          description: "Moving indicator interval (e.g. 1m, 15m, 30m, 1h, 4h, 12h)"
+        movingIndicatorParam:
+          type: string
+          description: 'Moving indicator parameters JSON (e.g. {"length":720})'
+        movingTrailingUpParam:
+          type: string
+          description: "SMA trailing up trigger ratio (e.g. 0.05)"
+        cateType:
+          type: string
+          description: |
+            Category type:
+            `FUTURES_MOON` - Futures moon order,
+            `FULLY_HEDGING` - Fully hedged order,
+            `LOAN_GRID` - Loan grid,
+            `LEVERAGE_GRID` - Leverage grid,
+            `FUTURE_GRID_COIN_MARGINED` - Coin-margined futures grid
+          enum:
+            - FUTURES_MOON
+            - FULLY_HEDGING
+            - LOAN_GRID
+            - LEVERAGE_GRID
+            - FUTURE_GRID_COIN_MARGINED
+        movingTop:
+          type: string
+          description: Moving grid upper limit
+        movingBottom:
+          type: string
+          description: Moving grid lower limit
+        profitExited:
+          type: string
+          description: Exited profit
+        fundingFeePayment:
+          type: string
+          description: Total funding fee paid (negative value)
+        enableFollowClosed:
+          type: boolean
+          description: Whether to follow close (requires original order to enable follow close)
+
+    InvestInTrigger:
+      type: object
+      properties:
+        condition:
+          type: string
+          description: Trigger investment price
+        conditionDirection:
+          type: string
+          description: "Direction: \"1\" (above current price), \"-1\" (below current price)"
+          enum: ["1", "-1"]
+        quoteInvestment:
+          type: string
+          description: Trigger investment amount
+        extraMarginAmount:
+          type: string
+          description: Trigger dynamic margin
+        addTime:
+          type: number
+          description: Add time in milliseconds
+        investCoin:
+          type: string
+          description: Investment currency (currently only supports quote)
+
+    InvestOutTrigger:
+      type: object
+      properties:
+        condition:
+          type: string
+          description: Trigger reduction price
+        conditionDirection:
+          type: string
+          description: "Direction: \"1\" (above current price), \"-1\" (below current price)"
+          enum: ["1", "-1"]
+        reduceNum:
+          type: number
+          description: "Reduction amount: order precision * reduceNum"
+        addTime:
+          type: number
+          description: Add time in milliseconds
+
+    CreateFuturesGridRequest:
+      type: object
+      required: [keyId, exchange, base, quote, buOrderData]
+      properties:
+        keyId:
+          type: string
+          description: API Key ID
+        exchange:
+          type: string
+          description: Exchange identifier
+          example: pionex.v2
+        base:
+          type: string
+          description: Base currency
+          example: BTC
+        quote:
+          type: string
+          description: Quote currency
+          example: USDT
+        copyFrom:
+          type: string
+          description: Copy source order ID
+        copyType:
+          type: string
+          description: Copy type
+        groupId:
+          type: string
+          description: Group ID to bind the order to
+        copyBotOrderId:
+          type: string
+          description: Copy bot order ID
+        lang:
+          type: string
+          description: Language
+        buOrderData:
+          $ref: '#/components/schemas/CreateFuturesGridOrderData'
+
+    CreateFuturesGridOrderData:
+      type: object
+      required: [top, bottom, row, grid_type, openPrice, trend, leverage, extraMargin, quoteInvestment]
+      properties:
+        top:
+          type: string
+          description: Grid upper price
+        bottom:
+          type: string
+          description: Grid lower price
+        row:
+          type: number
+          description: Number of grid levels
+        grid_type:
+          type: string
+          description: "Grid spacing type: `arithmetic` (equal difference) or `geometric` (equal ratio)"
+          enum: [arithmetic, geometric]
+        openPrice:
+          type: string
+          description: Current price
+        trend:
+          type: string
+          description: "Grid direction: `long`, `short`, or `no_trend` (neutral)"
+          enum: [long, short, no_trend]
+        leverage:
+          type: number
+          description: Leverage multiplier
+        extraMargin:
+          type: string
+          description: Extra margin amount
+        quoteInvestment:
+          type: string
+          description: Investment amount
+        condition:
+          type: string
+          description: Trigger price (for conditional orders)
+        conditionDirection:
+          type: string
+          description: "Trigger direction: \"-1\" (price drops to) or \"1\" (price rises to)"
+          enum: ["-1", "1"]
+        lossStopType:
+          type: string
+          description: "Stop loss type: `price` (default), `profit_amount`, `profit_ratio`, `price_limit`"
+          enum: [price, profit_amount, profit_ratio, price_limit]
+        lossStop:
+          type: string
+          description: Stop loss value (interpretation depends on lossStopType)
+        lossStopDelay:
+          type: number
+          description: Stop loss delay in seconds
+        profitStopType:
+          type: string
+          description: "Take profit type: `price` (default), `profit_amount`, `profit_ratio`, `price_limit`"
+          enum: [price, profit_amount, profit_ratio, price_limit]
+        profitStop:
+          type: string
+          description: Take profit value (interpretation depends on profitStopType)
+        profitStopDelay:
+          type: number
+          description: Take profit delay in seconds
+        lossStopHigh:
+          type: string
+          description: Upper stop loss price for neutral grid (above top)
+        shareRatio:
+          type: string
+          description: Profit sharing ratio
+        investCoin:
+          type: string
+          description: "Investment currency: `USDT` or quote currency (default)"
+        investmentFrom:
+          type: string
+          description: "Funding source: `USER` (default), `LOCK_ACTIVITY`, `FUTURE_GRID_BONUS`"
+          enum: [USER, LOCK_ACTIVITY, FUTURE_GRID_BONUS]
+        uiInvestCoin:
+          type: string
+          description: Frontend-recorded investment currency type (stored only)
+        lossStopLimitPrice:
+          type: string
+          description: Limit stop loss price (when lossStopType=price_limit)
+        lossStopLimitHighPrice:
+          type: string
+          description: Upper limit stop loss price for neutral grid (when lossStopType=price_limit)
+        profitStopLimitPrice:
+          type: string
+          description: Limit take profit price (when profitStopType=price_limit)
+        slippage:
+          type: string
+          description: "Open position slippage (e.g. \"0.01\" = 1%)"
+        bonusId:
+          type: string
+          description: Bonus UUID (when investmentFrom=FUTURE_GRID_BONUS)
+        uiExtraData:
+          type: string
+          description: Frontend extra data for coin-margined futures grid
+        movingIndicatorType:
+          type: string
+          description: "Moving indicator type (e.g. `sma`)"
+        movingIndicatorInterval:
+          type: string
+          description: "Moving indicator interval (e.g. 1m, 15m, 30m, 1h, 4h, 12h)"
+        movingIndicatorParam:
+          type: string
+          description: 'Moving indicator parameters JSON (e.g. {"length":720})'
+        movingTrailingUpParam:
+          type: string
+          description: "SMA trailing up trigger ratio (e.g. 0.05)"
+        cateType:
+          type: string
+          description: "Category type"
+          enum: [FUTURES_MOON, FULLY_HEDGING, LOAN_GRID, LEVERAGE_GRID, FUTURE_GRID_COIN_MARGINED]
+        movingTop:
+          type: string
+          description: Moving grid upper limit
+        movingBottom:
+          type: string
+          description: Moving grid lower limit
+        enableFollowClosed:
+          type: boolean
+          description: Whether to follow close
+
+    AdjustFuturesGridRequest:
+      type: object
+      required: [buOrderId, type, extraMargin, openPrice]
+      properties:
+        buOrderId:
+          type: string
+          description: Bot order ID
+        type:
+          type: string
+          description: |
+            Adjustment type:
+            `invest_in` - Add investment,
+            `adjust_params` - Modify grid range,
+            `invest_in_trigger` - Trigger investment
+          enum: [invest_in, adjust_params, invest_in_trigger]
+        quoteInvestment:
+          type: number
+          description: |
+            When type=invest_in: additional investment amount (must be > 0).
+            When type=adjust_params: amount to add to investment.
+        extraMargin:
+          type: boolean
+          description: "true: reserve extra margin, false: no extra margin"
+        openPrice:
+          type: number
+          description: Current price
+        bottom:
+          type: string
+          description: New grid lower price (required when type=adjust_params)
+        top:
+          type: string
+          description: New grid upper price (required when type=adjust_params)
+        row:
+          type: number
+          description: New grid level count (required when type=adjust_params)
+        extraMarginAmount:
+          type: number
+          description: Extra margin amount to add (when type=adjust_params)
+        isRecommend:
+          type: boolean
+          description: Whether using recommended parameters (when type=adjust_params)
+        isReinvest:
+          type: boolean
+          description: Whether to reinvest total profit when modifying range (default false)
+        investCoin:
+          type: string
+          description: "Investment currency: `USDT` or quote currency (default)"
+        investmentFrom:
+          type: string
+          description: "Funding source: `USER` (default) or `LOCK_ACTIVITY`"
+          enum: [USER, LOCK_ACTIVITY]
+        condition:
+          type: string
+          description: Trigger price (when type=invest_in_trigger)
+        conditionDirection:
+          type: string
+          description: "Trigger direction: \"1\" (above current) or \"-1\" (below current)"
+          enum: ["1", "-1"]
+        slippage:
+          type: string
+          description: Slippage for add investment / modify range
+        adjustParamsSence:
+          type: string
+          description: "When type=adjust_params: `reinvest` means keep params, add current profit to investment"
+
+    ReduceFuturesGridRequest:
+      type: object
+      required: [buOrderId, openPrice, reduceNum]
+      properties:
+        buOrderId:
+          type: string
+          description: Bot order ID
+        openPrice:
+          type: string
+          description: Current price
+        reduceNum:
+          type: number
+          description: "Reduction amount: order precision * reduceNum"
+        slippage:
+          type: string
+          description: Reduction slippage
+        condition:
+          type: string
+          description: Trigger reduction price (must be > 0)
+        conditionDirection:
+          type: string
+          description: "Trigger direction: \"1\" (above current) or \"-1\" (below current)"
+          enum: ["1", "-1"]
+
+    ReduceFuturesGridResponse:
+      type: object
+      properties:
+        checkResult:
+          type: boolean
+          description: Check result
+        reason:
+          type: string
+          description: |
+            Failure reason:
+            `LOSS_GTE_INVESTMENT` - Total equity minus dynamic margin <= 0,
+            `POSITION_TOO_SMALL` - Position too small to reduce,
+            `REDUCE_TOO_MUCH` - reduceNum too large,
+            `REDUCE_TOO_SMALL` - reduceNum too small,
+            `SYMBOL_MAINTENANCE` - Symbol under maintenance
+          enum:
+            - LOSS_GTE_INVESTMENT
+            - POSITION_TOO_SMALL
+            - REDUCE_TOO_MUCH
+            - REDUCE_TOO_SMALL
+            - SYMBOL_MAINTENANCE
+
+    CancelFuturesGridRequest:
+      type: object
+      properties:
+        buOrderId:
+          type: string
+          description: Bot order ID
+        closeNote:
+          type: string
+          description: Close note
+        closeSellModel:
+          type: string
+          description: |
+            Close sell mode:
+            `TO_QUOTE` - Close position only (default),
+            `TO_USDT` - Close position and sell quote to USDT
+          enum: [TO_QUOTE, TO_USDT]
+        immediate:
+          type: boolean
+          description: Immediately close with market price (when order is in limit close process)
+        closeSlippage:
+          type: string
+          description: "Close position slippage (e.g. \"0.01\" = 1%)"
