@@ -763,15 +763,8 @@ components:
 
     CreateFuturesGridRequest:
       type: object
-      required: [keyId, exchange, base, quote, buOrderData]
+      required: [base, quote, buOrderData]
       properties:
-        keyId:
-          type: string
-          description: API Key ID
-        exchange:
-          type: string
-          description: Exchange identifier
-          example: pionex.v2
         base:
           type: string
           description: Base currency
@@ -800,7 +793,7 @@ components:
 
     CreateFuturesGridOrderData:
       type: object
-      required: [top, bottom, row, grid_type, openPrice, trend, leverage, extraMargin, quoteInvestment]
+      required: [top, bottom, row, grid_type, trend, leverage, quoteInvestment]
       properties:
         top:
           type: string
@@ -815,9 +808,6 @@ components:
           type: string
           description: "Grid spacing type: `arithmetic` (equal difference) or `geometric` (equal ratio)"
           enum: [arithmetic, geometric]
-        openPrice:
-          type: string
-          description: Current price
         trend:
           type: string
           description: "Grid direction: `long`, `short`, or `no_trend` (neutral)"
@@ -907,7 +897,7 @@ components:
         cateType:
           type: string
           description: "Category type"
-          enum: [FUTURES_MOON, FULLY_HEDGING, LOAN_GRID, LEVERAGE_GRID, FUTURE_GRID_COIN_MARGINED]
+          enum: [FULLY_HEDGING, LOAN_GRID, LEVERAGE_GRID, FUTURE_GRID_COIN_MARGINED]
         movingTop:
           type: string
           description: Moving grid upper limit
