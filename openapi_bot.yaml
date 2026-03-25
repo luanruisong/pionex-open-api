@@ -779,15 +779,9 @@ components:
         copyType:
           type: string
           description: Copy type
-        groupId:
-          type: string
-          description: Group ID to bind the order to
         copyBotOrderId:
           type: string
           description: Copy bot order ID
-        lang:
-          type: string
-          description: Language
         buOrderData:
           $ref: '#/components/schemas/CreateFuturesGridOrderData'
 
