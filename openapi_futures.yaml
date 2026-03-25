@@ -1,0 +1,2684 @@
+openapi: 3.0.3
+info:
+  title: Pionex Futures Open API
+  description: |
+    Pionex cryptocurrency futures exchange RESTful API.
+
+    # General Info
+
+    ## Basic Info
+
+    **Base URL:** `https://api.pionex.com`
+
+    **Request Format:**
+    - For private requests, the `timestamp` parameter (in milliseconds) must be included in the query string. The timestamp is valid within a range of ±20 seconds.
+    - Private requests require `PIONEX-KEY` (API Key) and `PIONEX-SIGNATURE` headers.
+    - GET requests: additional parameters are passed in the query string.
+    - POST/DELETE requests: parameters are passed in the request body as JSON (`application/json`).
+    - Zero-valued number parameters are disregarded.
+
+    **Signature Construction:**
+    - GET: `METHOD + PATH_URL + QUERY + TIMESTAMP`
+    - POST/DELETE: `METHOD + PATH_URL + QUERY + TIMESTAMP + body`
+
+    **Response Format:**
+
+    All responses are JSON objects containing:
+    - `result` (boolean): success indicator
+    - `timestamp` (number): response timestamp in milliseconds
+    - On success: `data` object with business information
+    - On failure: `code` (string) and `message` (string) with error details
+
+    Success example:
+    ```json
+    {"result": true, "data": {"orderId": 123456789}, "timestamp": 1566691672311}
+    ```
+
+    Failure example:
+    ```json
+    {"result": false, "code": "TRADE_INVALID_SYMBOL", "message": "Invalid symbol", "timestamp": 1566691672311}
+    ```
+
+    ## Rate Limits
+
+    - Each endpoint has a weight value that determines how many requests it counts toward the limit.
+    - IP-based and account-based limits operate independently.
+    - All endpoints share the 10 per second limit based on IP.
+    - Private endpoints share the 10 per second limit based on ACCOUNT.
+    - Exceeding the weight limit results in HTTP 429 status code.
+    - The violating IP or account receives a 60-second ban.
+    - Repeated violations extend the ban duration by 10 seconds per additional request.
+
+    ## Authentication
+
+    [API Key Guide](https://www.pionex.com/docs/api-docs/references/api-key-guide)
+
+    Private endpoints require HMAC SHA256 signature authentication. Public endpoints (common information, market data) do not require signing.
+
+    API Keys must have appropriate permissions assigned before accessing corresponding endpoints.
+
+    **Required headers:**
+    - `PIONEX-KEY`: Your API Key
+    - `PIONEX-SIGNATURE`: HMAC SHA256 hex signature
+
+    **Required query parameter:**
+    - `timestamp`: Current time in milliseconds (valid within ±20 seconds)
+
+    **Signing Process:**
+
+    1. Obtain current timestamp in milliseconds
+    2. Format query parameters as key-value pairs (no URL encoding for signature values)
+    3. Sort parameters alphabetically by key and join with `&` (include timestamp)
+    4. Build PATH_URL by appending sorted parameters to the request path with `?`
+    5. Prepend the HTTP METHOD (GET, POST, DELETE) to the PATH_URL
+    6. For POST/DELETE requests, append the request body; skip for GET
+    7. Generate HMAC SHA256 using your API Secret and the concatenated string, convert to hexadecimal
+
+    The resulting hex signature goes into the request header as `PIONEX-SIGNATURE`.
+
+    ### API Key Permissions
+
+    Each API Key can be configured with **Enable reading**, **Enable trading**, and/or **Enable transfer** permissions. Make sure your API Key has the appropriate permission enabled before calling the following endpoints.
+
+    **Endpoints requiring `Enable reading` permission:**
+    - `GET /uapi/v1/account/balances` — Get account balances
+    - `GET /uapi/v1/account/positions` — Get current positions
+    - `GET /uapi/v1/account/historyPositions` — Get history positions
+    - `GET /uapi/v1/account/detail` — Get account detail
+    - `GET /uapi/v1/account/leverage` — Get current leverage
+    - `GET /uapi/v1/account/positionMode` — Get position mode
+    - `GET /uapi/v1/trade/isolatedMode` — Get margin mode
+    - `GET /uapi/v1/trade/order` — Get single order
+    - `GET /uapi/v1/trade/orderByClientOrderId` — Get order by client order ID
+    - `GET /uapi/v1/trade/openOrders` — Get open orders
+    - `GET /uapi/v1/trade/historyOrders` — Get history orders
+    - `GET /uapi/v1/trade/fills` — Get fills
+    - `GET /uapi/v1/trade/fillsByOrderId` — Get fills by order ID
+    - `GET /uapi/v1/trade/fundingFee` — Get funding fee records
+    - `GET /api/v1/assets/transfer` — Get single transfer record
+    - `GET /api/v1/assets/transfers` — Get transfer records
+
+    **Endpoints requiring `Enable trading` permission:**
+    - `POST /uapi/v1/trade/order` — Place order
+    - `DELETE /uapi/v1/trade/order` — Cancel order
+    - `POST /uapi/v1/trade/massOrder` — Batch place orders
+    - `DELETE /uapi/v1/trade/allOrders` — Cancel all orders
+    - `POST /uapi/v1/trade/isolateMargin` — Transfer isolated margin
+    - `POST /uapi/v1/account/leverage` — Update leverage
+    - `POST /uapi/v1/account/positionMode` — Update position mode
+    - `POST /uapi/v1/trade/isolatedMode` — Update margin mode
+
+    **Endpoints requiring `Enable transfer` permission:**
+    - `POST /api/v1/assets/transfer` — Create transfer
+  version: 1.0.0
+  contact:
+    name: Pionex API Support
+    url: https://t.me/pionexapi
+
+servers:
+  - url: https://api.pionex.com
+    description: Production
+
+security: []
+
+tags:
+  - name: Common
+    description: Futures common information (public)
+  - name: Account
+    description: Futures account management (private)
+  - name: Trade
+    description: Futures order trading (private)
+  - name: Transfer
+    description: Fund transfers between accounts (private)
+  - name: Market
+    description: Futures market data (public)
+
+paths:
+  /api/v1/common/symbols:
+    get:
+      tags: [Common]
+      summary: Get futures symbols info
+      description: "Get all futures trading pair information. Weight: 5."
+      operationId: getFuturesSymbols
+      parameters:
+        - name: symbols
+          in: query
+          description: "Comma-separated symbol list, e.g. BTC_USDT_PERP,ETH_USDT_PERP. When specified, `type` parameter is ignored."
+          schema:
+            type: string
+            example: "BTC_USDT_PERP,ETH_USDT_PERP"
+        - name: type
+          in: query
+          description: "Market type. Defaults to SPOT. Only effective when `symbols` is not specified."
+          schema:
+            type: string
+            enum: [SPOT, PERP]
+        - name: status
+          in: query
+          description: "Filter by status. Defaults to ALL. Only effective for PERP type."
+          schema:
+            type: string
+            enum: [ALL, TRADING, OFFLINE]
+            default: ALL
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          symbols:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/FuturesSymbolInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/common/riskTable:
+    get:
+      tags: [Common]
+      summary: Get risk table
+      description: "Get risk limit tiers for futures symbols. Weight: 5."
+      operationId: getRiskTable
+      parameters:
+        - name: symbol
+          in: query
+          description: Futures symbol. Returns all symbols if not specified.
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          symbols:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/RiskTableEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /uapi/v1/account/balances:
+    get:
+      tags: [Account]
+      summary: Get account balances
+      description: "Query futures account asset balances. Weight: 5."
+      operationId: getAccountBalances
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          balances:
+                            type: array
+                            description: Cross margin balance list
+                            items:
+                              $ref: '#/components/schemas/AccountBalance'
+                          isolates:
+                            type: array
+                            description: Isolated margin asset list
+                            items:
+                              $ref: '#/components/schemas/IsolatedBalance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/account/positions:
+    get:
+      tags: [Account]
+      summary: Get current positions
+      description: "Query current active positions. Weight: 5."
+      operationId: getPositions
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          description: "Futures symbol. Returns all positions if not specified."
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          positions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Position'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/account/historyPositions:
+    get:
+      tags: [Account]
+      summary: Get history positions
+      description: "Query historical closed or taken-over positions. Weight: 5."
+      operationId: getHistoryPositions
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          description: Futures symbol
+          schema:
+            type: string
+        - name: positionFlag
+          in: query
+          description: "Position flag filter"
+          schema:
+            type: string
+            enum: [CLOSED, TAKEOVER]
+        - name: startTime
+          in: query
+          description: Start time filter based on updateTime (milliseconds)
+          schema:
+            type: integer
+            format: int64
+        - name: endTime
+          in: query
+          description: End time filter based on updateTime (milliseconds)
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: Number of results to return
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          positions:
+                            type: array
+                            description: Positions sorted by close time in descending order
+                            items:
+                              $ref: '#/components/schemas/HistoryPosition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/account/detail:
+    get:
+      tags: [Account]
+      summary: Get account detail
+      description: "Query account detail including balances, positions, and risk info. Weight: 5."
+      operationId: getAccountDetail
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AccountDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/isolateMargin:
+    post:
+      tags: [Account]
+      summary: Transfer isolated margin
+      description: "Transfer funds in or out of isolated margin for a specific symbol. Weight: 5."
+      operationId: transferIsolateMargin
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, symbol, direction, isolatedMode, coin, amount]
+              properties:
+                clientId:
+                  type: string
+                  description: "Unique client ID per request, used for deduplication. Valid for 8 hours."
+                symbol:
+                  type: string
+                  description: Futures symbol
+                  example: BTC_USDT_PERP
+                direction:
+                  type: string
+                  description: "Transfer direction"
+                  enum: [IN, OUT]
+                isolatedMode:
+                  type: string
+                  description: "Isolated margin mode"
+                  enum: [ISOLATED_BOTH, ISOLATED_LONG, ISOLATED_SHORT]
+                coin:
+                  type: string
+                  description: "Currency to transfer (USDT or BTC)"
+                  enum: [USDT, BTC]
+                amount:
+                  type: string
+                  description: Transfer amount
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/account/leverage:
+    get:
+      tags: [Account]
+      summary: Get current leverage
+      description: "Query current leverage for a specific symbol. Weight: 5."
+      operationId: getLeverage
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          symbol:
+                            type: string
+                            description: Futures symbol
+                          leverage:
+                            type: string
+                            description: Current leverage multiplier
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Account]
+      summary: Update leverage
+      description: "Modify leverage for a specific symbol. Weight: 5."
+      operationId: updateLeverage
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, leverage]
+              properties:
+                symbol:
+                  type: string
+                  description: Futures symbol
+                  example: BTC_USDT_PERP
+                leverage:
+                  type: string
+                  description: Leverage multiplier
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          symbol:
+                            type: string
+                            description: Futures symbol
+                          leverage:
+                            type: string
+                            description: Updated leverage multiplier
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/account/positionMode:
+    get:
+      tags: [Account]
+      summary: Get position mode
+      description: "Query current position mode. Weight: 5."
+      operationId: getPositionMode
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          positionMode:
+                            type: string
+                            description: "Position mode"
+                            enum: [BUYSELL, OPENCLOSE]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Account]
+      summary: Update position mode
+      description: "Modify position mode. Weight: 5."
+      operationId: updatePositionMode
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [positionMode]
+              properties:
+                positionMode:
+                  type: string
+                  description: "Position mode: BUYSELL (one-way) or OPENCLOSE (hedge)"
+                  enum: [BUYSELL, OPENCLOSE]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/isolatedMode:
+    get:
+      tags: [Account]
+      summary: Get margin mode
+      description: "Query isolated/cross margin mode for a specific symbol. Weight: 5."
+      operationId: getIsolatedMode
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          symbol:
+                            type: string
+                            description: Futures symbol
+                          isolatedMode:
+                            type: string
+                            description: "Margin mode"
+                            enum: [CROSS, ISOLATED]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Account]
+      summary: Update margin mode
+      description: "Switch between isolated and cross margin mode for a specific symbol. Weight: 5."
+      operationId: updateIsolatedMode
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, isolatedMode]
+              properties:
+                symbol:
+                  type: string
+                  description: Futures symbol
+                  example: BTC_USDT_PERP
+                isolatedMode:
+                  type: string
+                  description: "Margin mode: CROSS (default) or ISOLATED"
+                  enum: [CROSS, ISOLATED]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/assets/transfer:
+    post:
+      tags: [Transfer]
+      summary: Create transfer
+      description: "Transfer funds between main account and trade account. Requires Transfer permission. Weight: 5."
+      operationId: createTransfer
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fromAccount, toAccount, currency, amount]
+              properties:
+                fromAccount:
+                  type: string
+                  description: Source account
+                  enum: [MAIN, TRADE]
+                toAccount:
+                  type: string
+                  description: Destination account
+                  enum: [MAIN, TRADE]
+                currency:
+                  type: string
+                  description: Currency to transfer
+                  example: USDT
+                amount:
+                  type: string
+                  description: Transfer amount
+                clientId:
+                  type: string
+                  description: "Client request ID, must be unique"
+                comment:
+                  type: string
+                  description: "Remark, limited to 32 characters"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          transferId:
+                            type: string
+                            description: Transfer ID
+                          status:
+                            type: string
+                            description: Transfer status
+                            enum: [COMPLETED, PROCESSING, FAILED]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags: [Transfer]
+      summary: Get single transfer record
+      description: "Query a single transfer record by client ID. Requires Read permission. Weight: 5."
+      operationId: getTransfer
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: clientId
+          in: query
+          description: Client request ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TransferRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/assets/transfers:
+    get:
+      tags: [Transfer]
+      summary: Get transfer records
+      description: "Query transfer record list sorted by time in descending order. Requires Read permission. Weight: 5."
+      operationId: getTransfers
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: status
+          in: query
+          description: "Filter by transfer status. Defaults to ALL."
+          schema:
+            type: string
+            enum: [ALL, COMPLETED, FAILED, PROCESSING]
+            default: ALL
+        - name: endTime
+          in: query
+          description: End time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 20, range 1-100."
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          records:
+                            type: array
+                            description: Transfer records sorted by time in descending order
+                            items:
+                              $ref: '#/components/schemas/TransferRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/order:
+    post:
+      tags: [Trade]
+      summary: Place order
+      description: "Place a new futures order (async). Weight: 5."
+      operationId: placeOrder
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, type]
+              properties:
+                clientOrderId:
+                  type: string
+                  description: "Client order ID for deduplication (server validates within 2 hours). Max 64 characters, alphanumeric and hyphen only."
+                symbol:
+                  type: string
+                  description: Futures symbol
+                  example: BTC_USDT_PERP
+                positionSide:
+                  type: string
+                  description: "Position side. Required for hedge mode (LONG/SHORT). Defaults to BOTH for one-way mode."
+                  enum: [BOTH, LONG, SHORT]
+                side:
+                  type: string
+                  description: Order side
+                  enum: [BUY, SELL]
+                type:
+                  type: string
+                  description: Order type
+                  enum: [LIMIT, MARKET_QTY, IOC, FOK, POSTONLY]
+                size:
+                  type: string
+                  description: "Order quantity. Required for limit orders."
+                price:
+                  type: string
+                  description: "Order price. Required for limit orders."
+                reduceOnly:
+                  type: boolean
+                  description: "Reduce-only flag. Only applicable in one-way mode (BUYSELL). Defaults to false. Must be false in hedge mode (OPENCLOSE)."
+                  default: false
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          orderId:
+                            type: integer
+                            format: int64
+                            description: Order ID
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags: [Trade]
+      summary: Get single order
+      description: "Query a single order by order ID. Weight: 5."
+      operationId: getOrder
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: orderId
+          in: query
+          required: true
+          description: Order ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Trade]
+      summary: Cancel order
+      description: "Cancel an existing order (async). Weight: 5."
+      operationId: cancelOrder
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, orderId]
+              properties:
+                symbol:
+                  type: string
+                  description: Futures symbol
+                  example: BTC_USDT_PERP
+                orderId:
+                  type: integer
+                  format: int64
+                  description: Order ID to cancel
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/massOrder:
+    post:
+      tags: [Trade]
+      summary: Batch place orders
+      description: "Place multiple limit orders in a single request (async). Maximum 20 orders per request. Weight: 5."
+      operationId: batchPlaceOrders
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, orders]
+              properties:
+                symbol:
+                  type: string
+                  description: Futures symbol
+                  example: BTC_USDT_PERP
+                orders:
+                  type: array
+                  description: "Limit order list. Maximum 20 orders."
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [side, type]
+                    properties:
+                      clientOrderId:
+                        type: string
+                        description: "Client order ID for deduplication. Max 64 characters, alphanumeric and hyphen only."
+                      positionSide:
+                        type: string
+                        description: "Position side. Required for hedge mode."
+                        enum: [BOTH, LONG, SHORT]
+                      side:
+                        type: string
+                        description: Order side
+                        enum: [BUY, SELL]
+                      size:
+                        type: string
+                        description: "Order quantity. Required for limit orders."
+                      price:
+                        type: string
+                        description: "Order price. Required for limit orders."
+                      type:
+                        type: string
+                        description: "Order type. Must be LIMIT."
+                        enum: [LIMIT]
+                      reduceOnly:
+                        type: boolean
+                        description: "Reduce-only flag. Must be false in hedge mode."
+                        default: false
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          orderIds:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                orderId:
+                                  type: integer
+                                  format: int64
+                                  description: Order ID
+                                clientOrderId:
+                                  type: string
+                                  description: Client order ID
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/orderByClientOrderId:
+    get:
+      tags: [Trade]
+      summary: Get order by client order ID
+      description: "Query an order by client order ID. Only orders within a certain time window can be queried. For normal queries, use /v1/trade/order instead. Weight: 5."
+      operationId: getOrderByClientOrderId
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: clientOrderId
+          in: query
+          required: true
+          description: Client order ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/openOrders:
+    get:
+      tags: [Trade]
+      summary: Get open orders
+      description: "Query currently active (open) orders. Weight: 5."
+      operationId: getOpenOrders
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          description: "Futures symbol. Returns all symbols if not specified."
+          schema:
+            type: string
+        - name: endTime
+          in: query
+          description: "End time (exclusive), defaults to current time. Milliseconds."
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 1-500."
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          orders:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/historyOrders:
+    get:
+      tags: [Trade]
+      summary: Get history orders
+      description: "Query historical closed orders. Weight: 5."
+      operationId: getHistoryOrders
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          description: Futures symbol
+          schema:
+            type: string
+        - name: startTime
+          in: query
+          description: Start time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: endTime
+          in: query
+          description: "End time in milliseconds. Defaults to current time."
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 50, range 1-200."
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          orders:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/fills:
+    get:
+      tags: [Trade]
+      summary: Get fills
+      description: "Query trade fill records sorted by time in descending order. Weight: 5."
+      operationId: getFills
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: startTime
+          in: query
+          description: Start time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: endTime
+          in: query
+          description: End time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 1-200."
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          fills:
+                            type: array
+                            description: Fills sorted by time in descending order
+                            items:
+                              $ref: '#/components/schemas/Fill'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/fillsByOrderId:
+    get:
+      tags: [Trade]
+      summary: Get fills by order ID
+      description: "Query trade fill records for a specific order sorted by time in descending order. Weight: 5."
+      operationId: getFillsByOrderId
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: orderId
+          in: query
+          required: true
+          description: Order ID
+          schema:
+            type: integer
+            format: int64
+        - name: fromId
+          in: query
+          description: Starting fill ID
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 1-200."
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          fills:
+                            type: array
+                            description: Fills sorted by time in descending order
+                            items:
+                              $ref: '#/components/schemas/Fill'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/allOrders:
+    delete:
+      tags: [Trade]
+      summary: Cancel all orders
+      description: "Cancel all open orders for a specific symbol (async). Weight: 5."
+      operationId: cancelAllOrders
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol]
+              properties:
+                symbol:
+                  type: string
+                  description: Futures symbol
+                  example: BTC_USDT_PERP
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uapi/v1/trade/fundingFee:
+    get:
+      tags: [Trade]
+      summary: Get funding fee records
+      description: "Query funding fee payment records sorted by time in descending order. Weight: 5."
+      operationId: getFundingFees
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: symbol
+          in: query
+          description: Futures symbol
+          schema:
+            type: string
+        - name: startTime
+          in: query
+          description: Start time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: endTime
+          in: query
+          description: End time in milliseconds
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 1-200."
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          fundings:
+                            type: array
+                            description: Funding fee records sorted by time in descending order
+                            items:
+                              $ref: '#/components/schemas/FundingFeeRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/market/trades:
+    get:
+      tags: [Market]
+      summary: Get recent trades
+      description: "Query recent market trades. Results are taker-side trades only, sorted in descending order. Weight: 5."
+      operationId: getMarketTrades
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 10-500."
+          schema:
+            type: integer
+            default: 100
+            minimum: 10
+            maximum: 500
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          trades:
+                            type: array
+                            description: Recent trades sorted in descending order
+                            items:
+                              $ref: '#/components/schemas/MarketTrade'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/klines:
+    get:
+      tags: [Market]
+      summary: Get klines (candlestick data)
+      description: "Query candlestick/kline data for a futures symbol. Weight: 5."
+      operationId: getMarketKlines
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: interval
+          in: query
+          required: true
+          description: "Kline interval. M=minutes, H=hours, D=day, W=week, m=month. Daily and larger intervals start from UTC 00:00. Weekly starts from Monday UTC 00:00. Monthly starts from the 1st UTC 00:00."
+          schema:
+            type: string
+            enum: [1M, 5M, 15M, 30M, 60M, 4H, 8H, 12H, 1D, 1W, 1m]
+        - name: endTime
+          in: query
+          description: "End time in milliseconds. Defaults to current time. Returned klines include this time."
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 1-500."
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          klines:
+                            type: array
+                            description: Klines sorted by time in descending order
+                            items:
+                              $ref: '#/components/schemas/Kline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/depth:
+    get:
+      tags: [Market]
+      summary: Get order book depth
+      description: "Query order book depth for a futures symbol. Weight: 5."
+      operationId: getMarketDepth
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Futures symbol
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: limit
+          in: query
+          description: "Number of price levels. Default 20, range 1-1000."
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          bids:
+                            type: array
+                            description: "Bid orders [price, size], sorted by price descending"
+                            items:
+                              type: array
+                              items:
+                                type: string
+                              minItems: 2
+                              maxItems: 2
+                          asks:
+                            type: array
+                            description: "Ask orders [price, size], sorted by price ascending"
+                            items:
+                              type: array
+                              items:
+                                type: string
+                              minItems: 2
+                              maxItems: 2
+                          updateTime:
+                            type: integer
+                            format: int64
+                            description: Last update time in milliseconds
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/tickers:
+    get:
+      tags: [Market]
+      summary: Get 24hr ticker
+      description: "Query 24-hour rolling window price change statistics. Weight: 5."
+      operationId: getMarketTickers
+      parameters:
+        - name: symbol
+          in: query
+          description: "Futures symbol. If specified, `type` is ignored."
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: type
+          in: query
+          description: "Market type. Defaults to SPOT. Only effective when `symbol` is not specified."
+          schema:
+            type: string
+            enum: [SPOT, PERP]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          tickers:
+                            type: array
+                            description: 24hr ticker data sorted by symbol ascending
+                            items:
+                              $ref: '#/components/schemas/Ticker'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/bookTicker:
+    get:
+      tags: [Market]
+      summary: Get best bid/ask price
+      description: "Query best bid and ask price for futures symbols. Weight: 5."
+      operationId: getBookTicker
+      parameters:
+        - name: symbol
+          in: query
+          description: "Futures symbol. If specified, `type` is ignored."
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: type
+          in: query
+          description: "Market type. Defaults to PERP. Only effective when `symbol` is not specified."
+          schema:
+            type: string
+            enum: [SPOT, PERP]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          tickers:
+                            type: array
+                            description: Book tickers sorted by symbol ascending
+                            items:
+                              $ref: '#/components/schemas/BookTicker'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/indexKlines:
+    get:
+      tags: [Market]
+      summary: Get index price klines
+      description: "Query index price candlestick data for a futures symbol. Weight: 5."
+      operationId: getIndexKlines
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: "Futures symbol. Only perpetual contracts are supported."
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: interval
+          in: query
+          required: true
+          description: "Kline interval. M=minutes, H=hours, D=day, W=week, m=month. Daily and larger intervals start from UTC 00:00."
+          schema:
+            type: string
+            enum: [1M, 5M, 15M, 30M, 60M, 4H, 8H, 12H, 1D, 1W, 1m]
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 1-2000."
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 2000
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          klines:
+                            type: array
+                            description: Index price klines sorted by time in descending order
+                            items:
+                              $ref: '#/components/schemas/IndexKline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/markKlines:
+    get:
+      tags: [Market]
+      summary: Get mark price klines
+      description: "Query mark price candlestick data for a futures symbol. Weight: 5."
+      operationId: getMarkKlines
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: "Futures symbol. Only perpetual contracts are supported."
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: interval
+          in: query
+          required: true
+          description: "Kline interval. M=minutes, H=hours, D=day, W=week, m=month. Daily and larger intervals start from UTC 00:00."
+          schema:
+            type: string
+            enum: [1M, 5M, 15M, 30M, 60M, 4H, 8H, 12H, 1D, 1W, 1m]
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 100, range 1-2000."
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 2000
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          klines:
+                            type: array
+                            description: Mark price klines sorted by time in descending order
+                            items:
+                              $ref: '#/components/schemas/IndexKline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/fundingRates:
+    get:
+      tags: [Market]
+      summary: Get historical funding rates
+      description: "Query historical funding rates for a futures symbol. Weight: 5."
+      operationId: getFundingRates
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: "Futures symbol. Only perpetual contracts are supported."
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+        - name: endTime
+          in: query
+          description: "Query funding rates before this time. Defaults to current time. Milliseconds."
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: "Number of results to return. Default 1, range 1-500."
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          symbol:
+                            type: string
+                            description: Futures symbol
+                          rates:
+                            type: array
+                            description: Funding rates sorted by fundingTime in descending order
+                            items:
+                              type: object
+                              properties:
+                                fundingRate:
+                                  type: string
+                                  description: Funding rate
+                                fundingTime:
+                                  type: integer
+                                  format: int64
+                                  description: Funding time in milliseconds
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/indexes:
+    get:
+      tags: [Market]
+      summary: Get futures index prices
+      description: "Query index price, mark price, and next funding rate for futures symbols. Weight: 5."
+      operationId: getIndexes
+      parameters:
+        - name: symbol
+          in: query
+          description: "Futures symbol. Only perpetual contracts are supported. Returns all if not specified."
+          schema:
+            type: string
+            example: BTC_USDT_PERP
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          indexes:
+                            type: array
+                            description: Index data sorted by symbol ascending
+                            items:
+                              $ref: '#/components/schemas/FuturesIndex'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/market/openInterests:
+    get:
+      tags: [Market]
+      summary: Get open interest
+      description: "Query open interest for all futures symbols. Weight: 5."
+      operationId: getOpenInterests
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          openInterests:
+                            type: array
+                            description: Open interest data sorted by symbol ascending
+                            items:
+                              type: object
+                              properties:
+                                symbol:
+                                  type: string
+                                  description: Futures symbol
+                                openInterest:
+                                  type: string
+                                  description: Open interest amount
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: PIONEX-KEY
+      description: |
+        API Key authentication. Requires two headers:
+        - `PIONEX-KEY`: Your API Key
+        - `PIONEX-SIGNATURE`: HMAC SHA256 hex signature
+
+        And a `timestamp` query parameter (milliseconds).
+
+  parameters:
+    Timestamp:
+      name: timestamp
+      in: query
+      required: true
+      description: Current timestamp in milliseconds (valid range +/- 20 seconds)
+      schema:
+        type: integer
+        format: int64
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        result:
+          type: boolean
+          description: Request success indicator
+        timestamp:
+          type: integer
+          format: int64
+          description: Response timestamp in milliseconds
+
+    ErrorResponse:
+      type: object
+      properties:
+        result:
+          type: boolean
+          example: false
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        timestamp:
+          type: integer
+          format: int64
+
+    FuturesSymbolInfo:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol identifier (displaySymbol)
+          example: BTC_USDT_PERP
+        name:
+          type: string
+          description: Futures symbol display name
+        contractType:
+          type: string
+          description: Contract type
+          enum: [PERPETUAL]
+        baseCurrency:
+          type: string
+          description: Base asset
+          example: BTC
+        quoteCurrency:
+          type: string
+          description: Quote asset
+          example: USDT
+        basePrecision:
+          type: integer
+          description: Base asset decimal places
+        quotePrecision:
+          type: integer
+          description: Quote asset decimal places
+        minNotional:
+          type: string
+          description: Minimum notional value
+        baseStep:
+          type: string
+          description: Quantity step size (base asset)
+        quoteStep:
+          type: string
+          description: Price step size (quote asset)
+        minSizeLimit:
+          type: string
+          description: Minimum quantity for limit orders
+        maxSizeLimit:
+          type: string
+          description: Maximum quantity for limit orders
+        maxImpactLimit:
+          type: string
+          description: Maximum impact price ratio for limit orders
+        minSizeMarket:
+          type: string
+          description: Minimum quantity for market orders
+        maxSizeMarket:
+          type: string
+          description: Maximum quantity for market orders
+        maxImpactMarket:
+          type: string
+          description: Maximum impact price ratio for market orders
+        maxOrderNum:
+          type: integer
+          description: Maximum number of orders per user
+        status:
+          type: string
+          description: Symbol trading status
+          enum: [TRADING, OFFLINE]
+        liquidationFeeRate:
+          type: string
+          description: Liquidation fee rate
+
+    RiskTableEntry:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol (displaySymbol)
+          example: BTC_USDT_PERP
+        rows:
+          type: array
+          description: Risk tier rows
+          items:
+            type: object
+            properties:
+              rowNum:
+                type: integer
+                description: Tier level number
+              notionalLimit:
+                type: string
+                description: Maximum notional value for this tier
+              maxLeverage:
+                type: string
+                description: Maximum leverage for this tier
+              maintMarginRatio:
+                type: string
+                description: Maintenance margin ratio
+              quickDeduction:
+                type: string
+                description: Quick deduction amount
+
+    AccountBalance:
+      type: object
+      properties:
+        coin:
+          type: string
+          description: Currency
+          example: USDT
+        free:
+          type: string
+          description: Available balance (8 decimal places)
+        frozen:
+          type: string
+          description: Frozen balance (8 decimal places)
+        debts:
+          type: string
+          description: Debt amount
+
+    IsolatedBalance:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        isolatedMode:
+          type: string
+          description: "Isolated margin type"
+          enum: [ISOLATED_BOTH, ISOLATED_LONG, ISOLATED_SHORT]
+        balances:
+          type: array
+          description: Isolated margin balances
+          items:
+            type: object
+            properties:
+              coin:
+                type: string
+                description: Currency
+              free:
+                type: string
+                description: Available balance
+              frozen:
+                type: string
+                description: Frozen balance
+              debts:
+                type: string
+                description: Debt amount
+
+    Position:
+      type: object
+      properties:
+        positionId:
+          type: string
+          description: Position ID
+        symbol:
+          type: string
+          description: Futures symbol (displaySymbol)
+          example: BTC_USDT_PERP
+        isolatedMode:
+          type: string
+          description: "Margin mode"
+          enum: [CROSS, ISOLATED_BOTH, ISOLATED_LONG, ISOLATED_SHORT]
+        riskState:
+          type: string
+          description: Risk state for isolated positions
+        positionSide:
+          type: string
+          description: Position direction
+          enum: [LONG, SHORT]
+        netSize:
+          type: string
+          description: "Net position size = sizeLong + sizeShort"
+        avgPrice:
+          type: string
+          description: "Average entry price = abs((amountLong + amountShort + amountSettled) / (sizeLong + sizeShort))"
+        unrealizedPnL:
+          type: string
+          description: "Unrealized PnL = (markPrice - avgPrice) * netSize"
+        sizeLong:
+          type: string
+          description: Cumulative long size (positive)
+        sizeShort:
+          type: string
+          description: Cumulative short size (negative)
+        amountLong:
+          type: string
+          description: Cumulative long cost (negative)
+        amountShort:
+          type: string
+          description: Cumulative short proceeds (positive)
+        amountSettled:
+          type: string
+          description: Cumulative settled amount
+        markPrice:
+          type: string
+          description: Mark price
+        initialMargin:
+          type: string
+          description: Initial margin requirement
+        maintMargin:
+          type: string
+          description: Maintenance margin requirement
+        liquidationPrice:
+          type: string
+          description: Estimated liquidation price
+        leverage:
+          type: string
+          description: Leverage multiplier
+        sizeLiquidated:
+          type: string
+          description: "Cumulative liquidated size (negative for long, positive for short)"
+        amountLiquidated:
+          type: string
+          description: "Cumulative liquidated amount (positive for long, negative for short)"
+        createTime:
+          type: integer
+          format: int64
+          description: Creation time in milliseconds
+        updateTime:
+          type: integer
+          format: int64
+          description: Last update time in milliseconds
+
+    HistoryPosition:
+      type: object
+      properties:
+        positionId:
+          type: string
+          description: Position ID
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        isolatedMode:
+          type: string
+          description: "Margin mode"
+          enum: [CROSS, ISOLATED_BOTH, ISOLATED_LONG, ISOLATED_SHORT]
+        positionSide:
+          type: string
+          description: Position direction
+          enum: [LONG, SHORT]
+        sizeLong:
+          type: string
+          description: Cumulative long size
+        sizeShort:
+          type: string
+          description: Cumulative short size
+        amountLong:
+          type: string
+          description: Cumulative long cost
+        amountShort:
+          type: string
+          description: Cumulative short proceeds
+        amountSettled:
+          type: string
+          description: Cumulative settled amount
+        leverage:
+          type: string
+          description: Leverage multiplier
+        sizeLiquidated:
+          type: string
+          description: "Cumulative liquidated size (negative for long, positive for short)"
+        amountLiquidated:
+          type: string
+          description: "Cumulative liquidated amount (positive for long, negative for short)"
+        sizeTakeover:
+          type: string
+          description: Taken-over size
+        createTime:
+          type: integer
+          format: int64
+          description: Creation time in milliseconds
+        updateTime:
+          type: integer
+          format: int64
+          description: Last update time in milliseconds
+
+    AccountDetail:
+      type: object
+      properties:
+        quoteRisks:
+          type: array
+          description: Risk data partitioned by quote currency
+          items:
+            type: object
+            properties:
+              quote:
+                type: string
+                description: Quote currency
+              riskState:
+                type: string
+                description: Risk state of the partition
+        balances:
+          type: array
+          description: Cross margin balance list (excluding zero balances)
+          items:
+            $ref: '#/components/schemas/AccountDetailBalance'
+        positions:
+          type: array
+          description: Position list
+          items:
+            $ref: '#/components/schemas/AccountDetailPosition'
+
+    AccountDetailBalance:
+      type: object
+      properties:
+        coin:
+          type: string
+          description: Currency
+        assets:
+          type: string
+          description: "Total assets = free + frozen"
+        free:
+          type: string
+          description: Available balance
+        frozen:
+          type: string
+          description: Frozen balance
+        transferable:
+          type: string
+          description: Funds available for spot trading
+        available:
+          type: string
+          description: Available margin
+        unrealizedPnL:
+          type: string
+          description: Total unrealized PnL
+        totalInitialMargin:
+          type: string
+          description: Total initial margin
+        debts:
+          type: string
+          description: Total debt
+
+    AccountDetailPosition:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol
+        positionId:
+          type: string
+          description: Position unique identifier
+        isolatedMode:
+          type: string
+          description: "Margin mode"
+          enum: [CROSS, ISOLATED_BOTH, ISOLATED_LONG, ISOLATED_SHORT]
+        positionSide:
+          type: string
+          description: Position direction
+          enum: [LONG, SHORT]
+        netSize:
+          type: string
+          description: "Net position size = sizeLong + sizeShort + sizeLiquidated"
+        avgPrice:
+          type: string
+          description: "Average entry price"
+        unrealizedPnL:
+          type: string
+          description: "Unrealized PnL = (markPrice - avgPrice) * netSize"
+        sizeLong:
+          type: string
+          description: Cumulative long size (positive)
+        sizeShort:
+          type: string
+          description: Cumulative short size (negative)
+        amountLong:
+          type: string
+          description: Cumulative long cost (negative)
+        amountShort:
+          type: string
+          description: Cumulative short proceeds (positive)
+        amountSettled:
+          type: string
+          description: Cumulative settled amount
+        markPrice:
+          type: string
+          description: Mark price
+        initialMargin:
+          type: string
+          description: "Initial margin (for hedge mode, this covers both long, short, and pending order margin)"
+        maintMargin:
+          type: string
+          description: Maintenance margin
+        liquidationPrice:
+          type: string
+          description: Estimated liquidation price
+        leverage:
+          type: string
+          description: Leverage multiplier
+        sizeLiquidated:
+          type: string
+          description: "Cumulative liquidated size (negative for long, positive for short)"
+        amountLiquidated:
+          type: string
+          description: "Cumulative liquidated amount (positive for long, negative for short)"
+        createdTime:
+          type: integer
+          format: int64
+          description: Creation time in milliseconds
+        updatedTime:
+          type: integer
+          format: int64
+          description: Last update time in milliseconds
+        riskState:
+          type: string
+          description: Risk state for isolated positions
+        balances:
+          type: array
+          description: Isolated margin balances
+          items:
+            type: object
+            properties:
+              totalInitialMargin:
+                type: string
+                description: Isolated initial margin
+              transferable:
+                type: string
+                description: Funds available for trading or transfer
+              coin:
+                type: string
+                description: Currency
+              free:
+                type: string
+                description: Available balance
+              frozen:
+                type: string
+                description: Frozen balance
+              debts:
+                type: string
+                description: Debt amount
+
+    Order:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          format: int64
+          description: Order ID
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        type:
+          type: string
+          description: Order type
+          enum: [LIMIT, MARKET_QTY, IOC, FOK, POSTONLY]
+        positionMode:
+          type: string
+          description: Position mode
+          enum: [BUYSELL, OPENCLOSE]
+        isolatedMode:
+          type: string
+          description: Margin mode
+          enum: [CROSS, ISOLATED_BOTH, ISOLATED_LONG, ISOLATED_SHORT]
+        side:
+          type: string
+          description: Order side
+          enum: [BUY, SELL]
+        positionSide:
+          type: string
+          description: Position side
+          enum: [BOTH, LONG, SHORT]
+        price:
+          type: string
+          description: Order price
+        origSize:
+          type: string
+          description: Original order quantity as submitted by user
+        size:
+          type: string
+          description: "Actual order quantity (may be trimmed for reduce-only orders)"
+        amount:
+          type: string
+          description: Market buy order amount
+        filledSize:
+          type: string
+          description: Filled quantity
+        filledAmount:
+          type: string
+          description: Filled amount
+        status:
+          type: string
+          description: "Order status. OPEN includes SUBMITTED/CONFIRMED/PARTIAL_FILLED. CLOSED includes FILLED/CANCELED/REJECTED."
+          enum: [OPEN, CLOSED]
+        reduceOnly:
+          type: boolean
+          description: "Whether this is a reduce-only order. Only applicable in one-way mode (BUYSELL)."
+        clientOrderId:
+          type: string
+          description: Client order ID
+        source:
+          type: string
+          description: Order source
+          enum: [MANUAL, API, SYSTEM, TRIGGER]
+        createTime:
+          type: integer
+          format: int64
+          description: Creation time in milliseconds
+        updateTime:
+          type: integer
+          format: int64
+          description: Last update time in milliseconds
+
+    Fill:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Fill ID
+        orderId:
+          type: integer
+          format: int64
+          description: Order ID
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        side:
+          type: string
+          description: Order side
+          enum: [BUY, SELL]
+        role:
+          type: string
+          description: Fill role
+          enum: [TAKER, MAKER]
+        price:
+          type: string
+          description: Fill price
+        size:
+          type: string
+          description: Fill quantity
+        fee:
+          type: string
+          description: Fee amount
+        feeCoin:
+          type: string
+          description: Fee currency
+        feeType:
+          type: string
+          description: "Fee type. TRADING: trading fee, LIQUIDATION: liquidation fee."
+          enum: [TRADING, LIQUIDATION]
+        timestamp:
+          type: integer
+          format: int64
+          description: Fill time in milliseconds
+
+    FundingFeeRecord:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        isolatedMode:
+          type: string
+          description: "Margin mode. CROSS for cross margin, ISOLATED for all isolated types."
+          enum: [CROSS, ISOLATED]
+        fundingFee:
+          type: string
+          description: Funding fee amount
+        fundingCoin:
+          type: string
+          description: Funding fee currency
+        timestamp:
+          type: integer
+          format: int64
+          description: Funding fee time in milliseconds
+        fundingRate:
+          type: string
+          description: Funding rate used for calculation
+
+    MarketTrade:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        tradeId:
+          type: string
+          description: Trade ID
+        price:
+          type: string
+          description: Trade price
+        size:
+          type: string
+          description: Trade quantity
+        side:
+          type: string
+          description: Taker side
+          enum: [BUY, SELL]
+        timestamp:
+          type: string
+          description: Trade time in milliseconds
+
+    Kline:
+      type: object
+      properties:
+        time:
+          type: integer
+          format: int64
+          description: Kline open time in milliseconds
+        open:
+          type: string
+          description: Open price
+        close:
+          type: string
+          description: Close price
+        high:
+          type: string
+          description: Highest price
+        low:
+          type: string
+          description: Lowest price
+        volume:
+          type: string
+          description: Trading volume in base currency
+
+    Ticker:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        time:
+          type: integer
+          format: int64
+          description: Server time in milliseconds (rounded up to the second)
+        open:
+          type: string
+          description: Open price
+        close:
+          type: string
+          description: Close price
+        high:
+          type: string
+          description: Highest price
+        low:
+          type: string
+          description: Lowest price
+        volume:
+          type: string
+          description: Trading volume in base currency
+        amount:
+          type: string
+          description: "Trading amount (sum of price * quantity)"
+        count:
+          type: integer
+          description: Number of trades
+
+    BookTicker:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        bidPrice:
+          type: string
+          description: Best bid price
+        bidSize:
+          type: string
+          description: Best bid quantity
+        askPrice:
+          type: string
+          description: Best ask price
+        askSize:
+          type: string
+          description: Best ask quantity
+        timestamp:
+          type: integer
+          format: int64
+          description: Update time in milliseconds
+
+    IndexKline:
+      type: object
+      properties:
+        time:
+          type: string
+          description: Kline open time in milliseconds
+        open:
+          type: string
+          description: Open price
+        close:
+          type: string
+          description: Close price
+        high:
+          type: string
+          description: Highest price
+        low:
+          type: string
+          description: Lowest price
+
+    FuturesIndex:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Futures symbol
+          example: BTC_USDT_PERP
+        indexPrice:
+          type: string
+          description: Index price
+        markPrice:
+          type: string
+          description: Mark price
+        nextFundingRate:
+          type: string
+          description: Estimated next funding rate
+        nextFundingTime:
+          type: integer
+          format: int64
+          description: Next funding time in milliseconds
+        updateTime:
+          type: integer
+          format: int64
+          description: Last update time in milliseconds
+
+    TransferRecord:
+      type: object
+      properties:
+        transferId:
+          type: string
+          description: Transfer ID
+        fromAccount:
+          type: string
+          description: Source account
+          enum: [MAIN, TRADE]
+        toAccount:
+          type: string
+          description: Destination account
+          enum: [MAIN, TRADE]
+        currency:
+          type: string
+          description: Currency
+        amount:
+          type: string
+          description: Transfer amount
+        clientId:
+          type: string
+          description: Client request ID
+        status:
+          type: string
+          description: Transfer status
+          enum: [COMPLETED, PROCESSING, FAILED]
+        reason:
+          type: string
+          description: Transfer reason
+          enum: [USER_MANUAL, OPENAPI]
+        comment:
+          type: string
+          description: "Remark, limited to 32 characters"
+        timestamp:
+          type: integer
+          format: int64
+          description: Operation time in milliseconds
