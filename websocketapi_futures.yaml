@@ -7,13 +7,16 @@ info:
 
     # General Info
 
+    ## Connection Endpoints
+
     > **Note:** The Futures API is currently in **Beta**. If you would like to use it, please contact us at [open@pionex.com](mailto:open@pionex.com).
 
-    ## Connection Endpoints
     - **Public stream**: `wss://ws.pionex.com/wsPub` (no authentication)
     - **Private stream**: `wss://ws.pionex.com/wsUA` (requires authentication)
 
     ## Authentication (Private Stream)
+
+    [API Key Guide](https://www.pionex.com/docs/api-docs/references/api-key-guide)
 
     Private futures streams require authentication via message after connection:
 
