@@ -62,7 +62,7 @@ info:
 
     ### API Key Permissions
 
-    Each API Key can be configured with **Partner reading** permission. Make sure your API Key has the appropriate permission enabled before calling the following endpoints.
+    Each API Key can be configured with **`Partner reading`** permission. Make sure your API Key has the appropriate permission enabled before calling the following endpoints.
 
     **Endpoints requiring `Partner reading` permission:**
     - `GET /api/v1/partner/kol/inviteTradeStat` — Get user trading volume
