@@ -1,0 +1,221 @@
+openapi: 3.0.3
+info:
+  title: Pionex Partner Open API
+  description: |
+    Pionex cryptocurrency exchange Partner RESTful API - Partner program management endpoints.
+
+    # General Info
+
+    ## Basic Info
+
+    **Base URL:** `https://api.pionex.com`
+
+    **Request Format:**
+    - For private requests, the `timestamp` parameter (in milliseconds) must be included in the query string. The timestamp is valid within a range of +/-20 seconds.
+    - Private requests require `PIONEX-KEY` (API Key) and `PIONEX-SIGNATURE` headers.
+    - GET requests: additional parameters are passed in the query string.
+    - POST/DELETE requests: parameters are passed in the request body as JSON (`application/json`).
+    - Zero-valued number parameters are disregarded.
+
+    **Signature Construction:**
+    - GET: `METHOD + PATH_URL + QUERY + TIMESTAMP`
+    - POST/DELETE: `METHOD + PATH_URL + QUERY + TIMESTAMP + body`
+
+    **Response Format:**
+
+    All responses are JSON objects containing:
+    - `result` (boolean): success indicator
+    - `timestamp` (number): response timestamp in milliseconds
+    - On success: `data` object with business information
+    - On failure: `code` (string) and `message` (string) with error details
+
+    Success example:
+    ```json
+    {"result": true, "data": {"total": 100, "list": [...]}, "timestamp": 1566691672311}
+    ```
+
+    Failure example:
+    ```json
+    {"result": false, "code": "PARAMETER_ERROR", "message": "Invalid parameter", "timestamp": 1566691672311}
+    ```
+
+    ## Rate Limits
+
+    - Each endpoint has a weight value that determines how many requests it counts toward the limit.
+    - IP-based and account-based limits operate independently.
+    - All endpoints share the 10 per second limit based on IP.
+    - Private endpoints share the 10 per second limit based on ACCOUNT.
+    - Exceeding the weight limit results in HTTP 429 status code.
+
+    ## Authentication
+
+    [API Key Guide](https://www.pionex.com/docs/api-docs/references/api-key-guide)
+
+    Private endpoints require HMAC SHA256 signature authentication.
+
+    **Required headers:**
+    - `PIONEX-KEY`: Your API Key
+    - `PIONEX-SIGNATURE`: HMAC SHA256 hex signature
+
+    **Required query parameter:**
+    - `timestamp`: Current time in milliseconds (valid within +/-20 seconds)
+
+    ### API Key Permissions
+
+    Each API Key can be configured with **Partner reading** permission. Make sure your API Key has the appropriate permission enabled before calling the following endpoints.
+
+    **Endpoints requiring `Partner reading` permission:**
+    - `GET /api/v1/partner/kol/inviteTradeStat` — Get user trading volume
+
+  version: 1.0.0
+  contact:
+    name: Pionex API Support
+    url: https://t.me/pionexapi
+
+servers:
+  - url: https://api.pionex.com
+    description: Production
+
+security: []
+
+tags:
+  - name: Partner
+    description: Partner program management (private)
+
+paths:
+  /api/v1/partner/kol/inviteTradeStat:
+    get:
+      tags: [Partner]
+      summary: Get user trading volume
+      description: "Query user trading volume statistics for a date range. Weight: 1."
+      operationId: getUserTradingVolume
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: startTime
+          in: query
+          required: true
+          description: Query begin time in format YYYY-MM-dd
+          schema:
+            type: string
+            format: date
+          example: "2024-01-01"
+        - name: endTime
+          in: query
+          required: true
+          description: Query end time in format YYYY-MM-dd
+          schema:
+            type: string
+            format: date
+          example: "2024-01-31"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserTradingVolumeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  parameters:
+    Timestamp:
+      name: timestamp
+      in: query
+      required: true
+      description: Request timestamp in milliseconds. Any timestamp older than 20,000 milliseconds or in the future is invalid.
+      schema:
+        type: integer
+        format: int64
+      example: 1566691672311
+
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        result:
+          type: boolean
+          description: Success indicator
+        timestamp:
+          type: integer
+          format: int64
+          description: Response timestamp in milliseconds
+        code:
+          type: string
+          description: Error code (present only on failure)
+        message:
+          type: string
+          description: Error message (present only on failure)
+
+    UserTradingStatItem:
+      type: object
+      description: User trading volume statistic
+      properties:
+        uid:
+          type: string
+          description: User's UID
+        account:
+          type: string
+          description: User's account
+        perpTradeAmount:
+          type: string
+          description: Volume for perpetual trading
+        spotTradeAmount:
+          type: string
+          description: Volume for spot trading
+
+    UserTradingVolumeResponse:
+      type: object
+      description: User trading volume statistics response
+      properties:
+        total:
+          type: integer
+          description: The number of records returned
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserTradingStatItem'
+          description: User trading volume list
+
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: PIONEX-KEY
+      description: API Key for authentication. Signature must be provided in PIONEX-SIGNATURE header.
+
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid parameters
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+          example:
+            result: false
+            code: PARAMETER_ERROR
+            message: Invalid parameter
+            timestamp: 1566691672311
+
+    Unauthorized:
+      description: Unauthorized - Missing or invalid API key or signature
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+          example:
+            result: false
+            code: UNAUTHORIZED
+            message: Invalid API key or signature
+            timestamp: 1566691672311
