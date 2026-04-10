@@ -84,6 +84,47 @@ tags:
     description: Partner program management (private)
 
 paths:
+  /api/v1/partner/kol/checkQualification:
+    get:
+      tags: [Partner]
+      summary: Check user qualification
+      description: "Check whether a user is affiliated with the partner and verify their qualification status. Weight: 1."
+      operationId: checkUserQualification
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - name: uid
+          in: query
+          required: true
+          description: The user UID to verify affiliation and qualification status
+          schema:
+            type: string
+          example: "123456789"
+        - name: bot_id
+          in: query
+          required: true
+          description: The bot/partner identifier making the request
+          schema:
+            type: string
+          example: "partner_bot_001"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CheckQualificationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/v1/partner/kol/inviteTradeStat:
     get:
       tags: [Partner]
@@ -122,47 +163,6 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/UserTradingVolumeResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/v1/partner/kol/checkQualification:
-    get:
-      tags: [Partner]
-      summary: Check user qualification
-      description: "Check whether a user is affiliated with the partner and verify their qualification status. Weight: 1."
-      operationId: checkUserQualification
-      security:
-        - apiKey: []
-      parameters:
-        - $ref: '#/components/parameters/Timestamp'
-        - name: uid
-          in: query
-          required: true
-          description: The user UID to verify affiliation and qualification status
-          schema:
-            type: string
-          example: "123456789"
-        - name: bot_id
-          in: query
-          required: true
-          description: The bot/partner identifier making the request
-          schema:
-            type: string
-          example: "partner_bot_001"
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/BaseResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/CheckQualificationResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
