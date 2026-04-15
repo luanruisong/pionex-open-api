@@ -17,7 +17,7 @@ info:
     - Private requests require `PIONEX-KEY` (API Key) and `PIONEX-SIGNATURE` headers.
     - GET requests: additional parameters are passed in the query string.
     - POST/DELETE requests: parameters are passed in the request body as JSON (`application/json`).
-    - Zero-valued number parameters are disregarded.
+    - Zero-valued number parameters are disregarded. 
 
     **Signature Construction:**
     - GET: `METHOD + PATH_URL + QUERY + TIMESTAMP`
