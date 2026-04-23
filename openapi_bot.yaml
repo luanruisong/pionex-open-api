@@ -258,6 +258,16 @@ paths:
         Pass a positive `quote_investment` to receive full estimate fields.
         The current market price is fetched automatically — `open_price` is not required.
 
+        **Extra Margin Modes** (controlled by `extra_margin`):
+
+        | | `extra_margin=false` (Manual) | `extra_margin=true` (Auto-split) |
+        |---|---|---|
+        | `quote_investment` meaning | Trading capital only | Total input (auto-split into trading capital + extra margin) |
+        | `extra_margin_amount` | User-specified extra margin, on top of `quote_investment` | Typically omitted; system auto-calculates |
+        | `estimate_investment` | = `quote_investment` | < `quote_investment` (trading capital portion) |
+        | `estimate_extra_margin` | = `extra_margin_amount` | Auto-calculated (= `quote_investment` − `estimate_investment`) |
+        | `min/max_investment` | Range for trading capital (excl. extra margin) | Range for total input (incl. extra margin) |
+
         **FailedWithData**: For errors marked "Yes" below, the response includes a `data` field
         even when `result=false`, containing `min_investment`, `max_investment`, and `slippage`
         so the client can display the valid investment range.
@@ -1665,17 +1675,33 @@ components:
           description: Leverage multiplier (1 to symbol's maximum leverage)
         extra_margin:
           type: boolean
-          description: "`true` = reserve extra margin; `false` = do not reserve (default)"
+          description: |
+            Controls how the investment is split between trading capital and extra margin (a safety buffer against liquidation).
+
+            - `false` (default) — **Manual mode**: `quote_investment` is used entirely as trading capital (position margin + order margin + fee). Extra margin must be specified separately via `extra_margin_amount`.
+            - `true` — **Auto-split mode**: `quote_investment` represents the **total input**. The system automatically splits it into trading capital and extra margin reserve. A portion is allocated as extra margin to reduce liquidation risk.
+
+            This flag also affects `min_investment` / `max_investment`:
+            - `false`: the range covers trading capital only (excluding extra margin).
+            - `true`: the range covers the total input (including the auto-calculated extra margin).
           default: false
         quote_investment:
           type: string
           description: |
             Investment amount in quote currency (must be > 0 and >= `min_investment`).
+
+            - When `extra_margin=false`: this is the **trading capital** only (extra margin is provided separately via `extra_margin_amount`).
+            - When `extra_margin=true`: this is the **total input** — the system will auto-split it into trading capital (`estimate_investment`) and extra margin (`estimate_extra_margin`).
+
             Passing `"0"` will return `result=false` with message `"less than min investment"` and partial data.
           example: "100"
         extra_margin_amount:
           type: string
-          description: "Manual extra margin amount. Only applies when `extra_margin=false`. Must be >= 0. Omit or pass empty string to use 0."
+          description: |
+            Additional margin amount on top of `quote_investment`, used as a safety buffer against liquidation. Must be >= 0. Omit or pass empty string to use 0.
+
+            - When `extra_margin=false`: this value is passed through as-is. It does **not** count toward `quote_investment` or the `min_investment`/`max_investment` range, but it improves the estimated liquidation price.
+            - When `extra_margin=true`: typically not needed, as the system auto-calculates extra margin from `quote_investment`. If provided, it is added on top of the auto-calculated margin and also improves the estimated liquidation price.
         condition:
           type: string
           description: Trigger price. When set, the bot starts only after the price reaches this level.
@@ -2373,11 +2399,17 @@ components:
       properties:
         min_investment:
           type: string
-          description: Minimum investment amount in quote currency
+          description: |
+            Minimum allowed `quote_investment`.
+            - When `extra_margin=false`: minimum trading capital (excluding extra margin).
+            - When `extra_margin=true`: minimum total input (including auto-calculated extra margin).
           example: "10.5"
         max_investment:
           type: string
-          description: Maximum investment amount in quote currency
+          description: |
+            Maximum allowed `quote_investment`.
+            - When `extra_margin=false`: maximum trading capital (excluding extra margin).
+            - When `extra_margin=true`: maximum total input (including auto-calculated extra margin).
           example: "50000"
         slippage:
           type: string
@@ -2387,19 +2419,25 @@ components:
           description: "Estimated per-grid buy/sell quantity."
         estimate_investment:
           type: string
-          description: "Estimated amount allocated to investment (position margin + order margin + fee)."
+          description: |
+            Estimated amount allocated to trading capital (= position margin + order margin + fee). Does **not** include extra margin.
+            - When `extra_margin=false`: equals `quote_investment` (all input goes to trading capital).
+            - When `extra_margin=true`: less than `quote_investment` — the remainder goes to `estimate_extra_margin`.
         estimate_extra_margin:
           type: string
-          description: "Estimated extra margin reserved."
+          description: |
+            Estimated extra margin — a safety buffer that reduces liquidation risk but is not used for grid trading itself.
+            - When `extra_margin=false`: equals the input `extra_margin_amount` (pass-through).
+            - When `extra_margin=true`: auto-calculated as `quote_investment - estimate_investment`.
         estimate_fee:
           type: string
-          description: "Estimated opening trading fee."
+          description: "Estimated opening trading fee (included in `estimate_investment`)."
         estimate_position_occupy_margin:
           type: string
-          description: "Estimated margin occupied by open positions."
+          description: "Estimated margin occupied by positions opened immediately at creation (included in `estimate_investment`)."
         estimate_order_occupy_margin:
           type: string
-          description: "Estimated margin occupied by pending open orders."
+          description: "Estimated margin occupied by pending grid orders (included in `estimate_investment`)."
         estimate_position:
           type: string
           description: "Estimated position opened immediately at order creation. Positive = long, negative = short."
