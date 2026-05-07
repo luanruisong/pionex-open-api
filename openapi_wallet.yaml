@@ -85,7 +85,7 @@ tags:
     description: Account balance query (private)
 
 paths:
-  /api/v1/balancesFull:
+  /api/v1/wallet/balancesFull:
     get:
       tags: [Wallet]
       summary: Get full account balances overview
